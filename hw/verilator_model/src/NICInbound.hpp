@@ -50,7 +50,7 @@ namespace PsPIN
         ni_control_port_t &ni_ctrl;
 
     public:
-        typedef std::function<void(uint64_t, uint64_t, uint64_t, uint64_t)> pkt_feedback_cb_t;
+        typedef std::function<void(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t)> pkt_feedback_cb_t;
 
     private:
         AXIMaster<AXIPortType> axi_driver;
@@ -386,10 +386,10 @@ namespace PsPIN
         // Progress HERs
         void her_progress_posedge()
         {
-	    *ni_ctrl.her_valid_o = 0;
+            *ni_ctrl.her_valid_o = 0;
 
-	    if (!(*ni_ctrl.her_ready_i))
-	    {
+            if (!(*ni_ctrl.her_ready_i))
+            {
                 ni_ctrl_stalls++;
                 return;
             }
@@ -455,7 +455,7 @@ namespace PsPIN
 
         void her_progress_negedge()
         {
-	    /* Nothing to do here yet */
+            /* Nothing to do here yet */
         }
 
         // Get feedback
@@ -475,7 +475,11 @@ namespace PsPIN
                 sum_pkt_latency += latency;
 
                 if (feedback_cb)
-                    feedback_cb(pktentry.user_ptr, pktentry.nic_arrival_time, pktentry.pspin_arrival_time, sim_time());
+                    feedback_cb(pktentry.user_ptr,
+                                *ni_ctrl.feedback_her_addr_i,
+                                pktentry.nic_arrival_time,
+                                pktentry.pspin_arrival_time,
+                                sim_time());
 
                 pktmap.erase(*ni_ctrl.feedback_her_addr_i);
 
