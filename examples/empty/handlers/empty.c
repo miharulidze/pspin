@@ -1,4 +1,3 @@
-
 // Copyright 2020 ETH Zurich
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,14 +21,14 @@
 #endif
 
 #ifndef NUM_INT_OP
-#define NUM_INT_OP 0
+#define NUM_INT_OP 2048
 #endif
 
 volatile __attribute__((section(".l2_handler_data"))) uint8_t handler_mem[] = {0xde, 0xad, 0xbe, 0xef};
 
-__handler__ void empty_ph(handler_args_t *args) 
+__handler__ void empty_ph(handler_args_t *args)
 {
-    //printf("Payload handler!\n");
+  //printf("Payload handler!\n");
 #if (NUM_INT_OP > 0)
     volatile int xx = 0;
     int x = xx;
@@ -49,4 +48,3 @@ void init_handlers(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handl
 
     *handler_mem_ptr = (void*) handler_mem;
 }
-

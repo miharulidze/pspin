@@ -10,10 +10,10 @@
 
 import pspin_cfg_pkg::*;
 
-/** 
+/**
  NOTE: this module needs to be revisioned because by introducing a packet buffer in L1 we don't have
  the concept of "packet slots" anymore. The cluster_occup_i signal should be signal the available space
- instead of the number of available packet slots. 
+ instead of the number of available packet slots.
 **/
 
 module scheduler #(
@@ -41,18 +41,18 @@ module scheduler #(
     //output IF to pktgen for feedbacks
     output logic                                pktgen_feedback_valid_o,
     input  logic                                pktgen_feedback_ready_i,
-    output feedback_descr_t                     pktgen_feedback_o 
-    
+    output feedback_descr_t                     pktgen_feedback_o
+
 );
 
     /////////////////////////
     /// Cluster interface ///
     /////////////////////////
 
-    // We use these registers to cut the combinatorial network from 
+    // We use these registers to cut the combinatorial network from
     // the uncluster (outside a cluster) to inside a cluster. This helps
     // defining domains and to close timings separately. It also reduces
-    // paths lengths. 
+    // paths lengths.
     logic [NUM_CLUSTERS-1:0]             cluster_task_valid_od;
     logic [NUM_CLUSTERS-1:0]             cluster_task_ready_id;
     handler_task_t [NUM_CLUSTERS-1:0]    cluster_task_descr_od;
@@ -126,13 +126,14 @@ module scheduler #(
                 2'b10   : cluster_occup_d[i] = cluster_occup_q[i] + 1;
                 2'b01   : cluster_occup_d[i] = cluster_occup_q[i] - 1;
                 default : cluster_occup_d[i] = cluster_occup_q[i];
-            endcase   
+            endcase
         end
     end
 
     //home cluster is in the last clog(NUM_CLUSTERS) bits of msg_id
-    logic [$clog2(NUM_CLUSTERS)-1:0] home_cluster_id;
-    assign home_cluster_id[$clog2(NUM_CLUSTERS)-1:0] = task_descr_i.msgid[$clog2(NUM_CLUSTERS)-1:0];
+    logic [1:0] home_cluster_id;
+    assign home_cluster_id[1:0] = task_descr_i.msgid[1:0];
+    //assign home_cluster_id[$clog2(NUM_CLUSTERS)-1:0] = task_descr_i.msgid[$clog2(NUM_CLUSTERS)-1:0];
 
     logic no_cluster_avail;
     logic can_use_home_cluster;
@@ -140,17 +141,17 @@ module scheduler #(
 
     //cluster_id is home_cluster if there is space in it, otherwise is the least loaded cluster
     //if no cluster are available, no_cluster_avail_d is 1
-    
+
     //if there is not cluster avail, then we schedule to the home cluster anyway.. we don't have additional info to make a better decision.
-    //Otherwise, we schedule to the home cluster if it has space (<MAX OCC) and it is ready to accept the new packets (there may be fragmentation in the cluster, 
+    //Otherwise, we schedule to the home cluster if it has space (<MAX OCC) and it is ready to accept the new packets (there may be fragmentation in the cluster,
     //there might not space even if the occupation is ok).
-    assign no_cluster_avail     = (cluster_occup_q[c_occup_min] >= MAX_OCC) ? 1'b1 : 1'b0;    
+    assign no_cluster_avail     = (cluster_occup_q[c_occup_min] >= MAX_OCC) ? 1'b1 : 1'b0;
     assign can_use_home_cluster = (no_cluster_avail || (cluster_occup_q[home_cluster_id] < MAX_OCC && cluster_task_ready_id[home_cluster_id]));
     assign sel_cluster_id       = (can_use_home_cluster) ? home_cluster_id : c_occup_min;
     assign cluster_id_d         = (state_q == ServePacket) ? sel_cluster_id : cluster_id_q;
 
     //task is put on all the output interfaces. Only the selected cluster ID will have
-    //cluster_valid_o[i] set. 
+    //cluster_valid_o[i] set.
     for (genvar i = 0; i < NUM_CLUSTERS; i++) begin : gen_cluster_task
         assign cluster_task_descr_od[i] = (state_q == ServePacket) ? task_descr_i : task_q;
         assign cluster_task_valid_od[i] = (cluster_id_d == i) && serving_cluster;
@@ -191,11 +192,11 @@ module scheduler #(
         .values_i(cluster_occup_q),
         .enabled_i(cluster_task_ready_id),
         .argmin_o(c_occup_min)
-    );  
+    );
 
     /** sequential part **/
     always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (~rst_ni) begin   
+        if (~rst_ni) begin
             state_q <= ServePacket;
             cluster_id_q <= '0;
             task_q <= '0;
@@ -212,7 +213,7 @@ module scheduler #(
     /*
     initial begin
         forever begin
-            @(posedge clk_i);
+  :          @(posedge clk_i);
             if (task_valid_i && task_ready_o) begin
                 $display("[sched] msg_id: %0d; cluster_id: %0d; occupation: %0d; no_cluster_avail: %0d", task_descr_i.msgid, cluster_id_d, cluster_occup_iq[cluster_id_d], no_cluster_avail);
             end
@@ -238,7 +239,17 @@ module scheduler #(
                 $display("%0d INFO FEEDBACK %0d %0d", $stime, pktgen_feedback_o.msgid, ($stime - start_time));
             end
         end
-    end
+    end // initial begin
+    `else // !`ifndef VERILATOR
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (task_valid_i && task_ready_o) begin
+            $display("[%0d][scheduler.sv] got task msg_id=%0d task_addr=%08x", $stime, task_descr_i.msgid, task_descr_i.pkt_addr);
+        end
+
+        if (pktgen_feedback_valid_o && pktgen_feedback_ready_i) begin
+            $display("[%0d][scheduler.sv] got feedback msg_id=%0d task_addr=%08x", $stime, pktgen_feedback_o.msgid, pktgen_feedback_o.pkt_addr);
+        end
+     end
     `endif
     // pragma translate_on
 
@@ -267,7 +278,7 @@ module scheduler #(
         .idx_o      ()
     );
 
-endmodule 
+endmodule
 
 module argmin4 #(
     VALUE_WIDTH = 64

@@ -29,9 +29,9 @@ __handler__ void copy_to_host_ph(handler_args_t *args)
     task_t* task = args->task;
     ip_hdr_t *ip_hdr = (ip_hdr_t*) (task->pkt_mem);
 #ifdef FROM_L2
-    uint8_t *nic_pld_addr = ((uint8_t*) (task->l2_pkt_mem)); 
+    uint8_t *nic_pld_addr = ((uint8_t*) (task->l2_pkt_mem));
 #else
-    uint8_t *nic_pld_addr = ((uint8_t*) (task->pkt_mem)); 
+    uint8_t *nic_pld_addr = ((uint8_t*) (task->pkt_mem));
 #endif
     uint16_t pkt_pld_len = ip_hdr->length;
 
@@ -40,6 +40,7 @@ __handler__ void copy_to_host_ph(handler_args_t *args)
     uint64_t host_address = task->host_mem_high;
     host_address = (host_address << 32) | (task->host_mem_low);
     spin_dma_to_host(host_address, (uint32_t) nic_pld_addr, pkt_pld_len, 1, &dma);
+    spin_cmd_wait(dma);
 
     //It's not strictly necessary to wait. The hw will enforce that the feedback is not
     //sent until all commands issued by this handlers are completed.
@@ -49,7 +50,7 @@ __handler__ void copy_to_host_ph(handler_args_t *args)
         spin_cmd_test(dma, &completed);
     } while (!completed);
 #elif defined(WAIT_SUSPEND)
-    spin_cmd_wait(dma);
+
 #endif
 
 }

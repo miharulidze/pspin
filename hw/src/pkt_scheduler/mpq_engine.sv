@@ -22,8 +22,8 @@ module mpq_engine #(
     output logic               her_ready_o,
     input  logic               her_valid_i,
     input  her_descr_t         her_i,
-    
-    //termination signal    
+
+    //termination signal
     input  logic               eos_i,
 
     //mpq ready signal
@@ -91,7 +91,7 @@ module mpq_engine #(
 
     // We use these registers to rember info about the currently selected MPQ.
     // We need to way one cycle to get the output from memory and use that,
-    // toghether with these info, to build the output. 
+    // toghether with these info, to build the output.
     mpq_state_t mpq_out_state_d, mpq_out_state_q;
     logic [$clog2(NUM_MPQ)-1:0] selected_mpq_d;
     logic [$clog2(NUM_MPQ)-1:0] selected_mpq_q;
@@ -121,16 +121,16 @@ module mpq_engine #(
 
     // Read output of the MPQ meta memory
     mpq_meta_t mpqmeta_read_mpq;
-    mpq_meta_t mpqmeta_read_mpq_ignored; 
+    mpq_meta_t mpqmeta_read_mpq_ignored;
 
-    // ready/valid for arbiter 
+    // ready/valid for arbiter
     logic arb_ready, arb_valid;
 
     assign mpq_full_o = fifo_full;
 
     // define the MPQ indices for the different events
     assign newher_mpq_idx      = her_i.msgid[$clog2(NUM_MPQ)-1:0];
-    assign tasksent_mpq_idx    = mpq_arb_idx; //this one comes one cycle before task_o! 
+    assign tasksent_mpq_idx    = mpq_arb_idx; //this one comes one cycle before task_o!
     assign feedback_mpq_idx    = feedback_i.msgid[$clog2(NUM_MPQ)-1:0];
 
     // Here we store the packets that are queued for each MPQ
@@ -239,7 +239,7 @@ module mpq_engine #(
 
     assign task_valid_o = (state_q == Ready || state_q == Stalled);
 
-    //this seems overworked.. 
+    //this seems overworked..
     assign task_o = (state_q==Ready) ? new_task : task_q;
     assign task_d = (state_q==Ready) ? new_task : task_q;
 
@@ -247,7 +247,7 @@ module mpq_engine #(
     assign selected_mpq_d = (arb_ready && arb_valid) ? tasksent_mpq_idx : selected_mpq_q;
     assign new_task_triggers_feedback_d = (arb_ready && arb_valid) ? fifo_pop : new_task_triggers_feedback_q;
 
-    always_comb begin 
+    always_comb begin
         case (mpq_out_state_q)
             Header: begin
                 new_task.handler_fun = mpqmeta_read_mpq.hh_addr;
@@ -288,12 +288,12 @@ module mpq_engine #(
     assign new_task.handler_mem_size = mpqmeta_read_mpq.handler_mem_size;
     assign new_task.host_mem_addr    = mpqmeta_read_mpq.host_mem_addr;
     assign new_task.host_mem_size    = mpqmeta_read_mpq.host_mem_size;
-    
+
     for (genvar i = 0; i< pspin_cfg_pkg::NUM_CLUSTERS; i++) begin: gen_task_scratchpad
         assign new_task.scratchpad_addr[i] = mpqmeta_read_mpq.scratchpad_addr[i];
         assign new_task.scratchpad_size[i] = mpqmeta_read_mpq.scratchpad_size[i];
     end
-    
+
     // Update MPQ state
     // This unit might have to process at most three MPQs at the same time:
     // - the MPQ for which we get a new HER,
@@ -302,7 +302,7 @@ module mpq_engine #(
     // For this reason, we keep three mpq_fsm. It can happen that two or all FSM
     // will be fed with the same MPQ (e.g., getting a new HER and a completion feedback
     // for the same MPQ in the same cycle). In that case, the FSM will produce the same
-    // output state, so it does not matter which output gets written. 
+    // output state, so it does not matter which output gets written.
     mpq_fsm #(
     ) i_newher_mpq_fsm (
         .her_new_i          (her_valid_i && her_ready_o),
@@ -369,14 +369,14 @@ module mpq_engine #(
 
     // Define valid/busy MPQs
     for (genvar i=0; i<NUM_MPQ; i++) begin
-        assign mpq_valid[i] = ((mpq_q[i].state == Header) || 
-                               (mpq_q[i].state == Payload && mpq_q[i].length > 0) || 
+        assign mpq_valid[i] = ((mpq_q[i].state == Header) ||
+                               (mpq_q[i].state == Payload && mpq_q[i].length > 0) ||
                                (mpq_q[i].state == Completion));
         assign mpq_busy[i]  = (mpq_q[i].state != Free);
     end
 
-    // Define ready signal on the HER input interface. We can 
-    // get a new HER if the MPQ to which the HER will go has space. 
+    // Define ready signal on the HER input interface. We can
+    // get a new HER if the MPQ to which the HER will go has space.
     assign her_ready_o = !fifo_full[newher_mpq_idx]; //((~fifo_full) != '0);
 
     // Forward the feedback to the NIC inbound engine
@@ -384,7 +384,7 @@ module mpq_engine #(
     assign nic_feedback_valid_o = feedback_valid_i && feedback_i.trigger_feedback == 1'b1;
     assign nic_feedback_o       = feedback_i;
 
-    // Sequential 
+    // Sequential
     always_ff @(posedge clk_i, negedge rst_ni) begin
         if (~rst_ni) begin
             mpq_q <= '0;
@@ -434,11 +434,25 @@ module mpq_engine #(
             @(posedge clk_i) (mpq_q[i].in_flight == '0) |-> (~(mpq_d[i].in_flight) != '0))
             else $fatal (1, "MPQ in_flight is negative!");
     end
+    `else // !`ifndef VERILATOR
+     always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (feedback_ready_o && feedback_valid_i) begin
+            $display("[%0d][mpq_engine.sv] got feedback msg_id=%0d task_addr=%08x", $time, feedback_i.msgid, feedback_i.pkt_addr);
+        end
+
+        if (her_ready_o && her_valid_i) begin
+            $display("[%0d][mpq_engine.sv] got task msg_id=%0d task_addr=%08x", $time, her_i.msgid, her_i.her_addr);
+        end
+
+        if (task_ready_i && task_valid_o) begin
+           $display("[%0d][mpq_engine.sv] send task msg_id=%0d task_addr=%08x", $time, task_o.msgid, task_o.pkt_addr);
+        end
+     end
     `endif
     // pragma translate_on
 
 
-endmodule 
+endmodule
 
 module mpq_fsm #(
 ) (
@@ -474,7 +488,7 @@ module mpq_fsm #(
         endcase
     end
 
-    always_comb begin 
+    always_comb begin
         case ({task_sent_i, feedback_i})
             2'b10   : mpq_o.in_flight = mpq_q.in_flight + 1;
             2'b01   : mpq_o.in_flight = mpq_q.in_flight - 1;
@@ -502,7 +516,7 @@ module mpq_fsm #(
         mpq_o.state = mpq_q.state;
         mpq_o.has_completion = mpq_q.has_completion;
 
-        case (mpq_q.state) 
+        case (mpq_q.state)
             Free: begin
                 if (her_new_i) begin
                     mpq_o.state = (her_new_has_hh_i) ? Header : Payload;
@@ -514,14 +528,14 @@ module mpq_fsm #(
                 if (task_sent_i) begin
                     mpq_o.state = HeaderRunning;
                 end
-            end 
+            end
 
             HeaderRunning: begin
                 if (feedback_i) begin
                     mpq_o.state = Payload;
                 end
             end
-    
+
             Payload: begin
                 if (task_sent_i && mpq_q.eom_seen && mpq_q.length == 1) begin
                     mpq_o.state = PayloadDraining;

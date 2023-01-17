@@ -31,7 +31,7 @@ int main(int argc, char**argv)
     int ectx_num;
 
     gdriver_init(argc, argv, NULL, &ectx_num);
-    gdriver_add_ectx(handlers_file, hh, ph, th, fill_packet, NULL, 0, NULL, 0);
+    gdriver_add_ectx(handlers_file, hh, ph, th, NULL, NULL, 0, NULL, 0);
 
     gdriver_run();
 
