@@ -12,23 +12,26 @@
 namespace PsPIN
 {
 
-
     class FMQEngine : public SimModule
     {
-
 
     public:
 
         template <typename T>
         class Buffer
         {
+
         private:
+
             std::queue<T> elements;
             uint32_t capacity;
 
         public:
+
             Buffer<T>(uint32_t capacity) : capacity(capacity)
-            {}
+            {
+
+            }
 
             bool is_full()
             {
@@ -57,10 +60,14 @@ namespace PsPIN
                 assert(!is_empty());
                 elements.pop();
             }
+
         };
 
-        class HER {
+        class HER
+        {
+
         public:
+
             uint16_t        her_msgid;
             uint8_t         her_is_eom;
             mem_addr_t      her_addr;
@@ -84,20 +91,26 @@ namespace PsPIN
             mem_size_t      her_meta_scratchpad_2_size;
             mem_addr_t      her_meta_scratchpad_3_addr;
             mem_size_t      her_meta_scratchpad_3_size;
+
         };
 
         class Feedback 
         {
+
         public:
+
             uint16_t        feedback_msgid;
             uint32_t        feedback_her_addr;
             uint32_t        feedback_her_size;
+
         };
 
 
         class Task 
         {
+
         public:
+
             uint16_t    msgid;
             mem_addr_t  pkt_addr;
             mem_size_t  pkt_size;
@@ -110,46 +123,64 @@ namespace PsPIN
             mem_addr_t  scratchpad_addr[NUM_CLUSTERS];
             mem_size_t  scratchpad_size[NUM_CLUSTERS];
             uint8_t     trigger_feedback;
+
         };
 
-        class FMQ {
+        class FMQ
+        {
+
         public:
+
             FMQ(): state(Idle), eom_seen(false), task_in_flight(0)
-            {}
+            {
+
+            }
 
             void fmq_init(HER& h)
             {
-                if (h.her_meta_hh_addr != 0) state = HHReady;
-                else state = PHReady;
+                if (h.her_meta_hh_addr != 0)
+                    state = HHReady;
+                else
+                    state = PHReady;
 
                 has_th = h.her_meta_th_addr != 0;
             }
 
-            bool push_her(HER& h) {
+            bool push_her(HER& h)
+            {
                 bool was_idle = false;
-                if (state==Idle) 
-                {
+
+                if (state==Idle) {
                     was_idle=true; 
                     fmq_init(h);
                 }
 
-                if (h.her_is_eom) eom_seen = 1;
+                if (h.her_is_eom)
+                    eom_seen = 1;
 
                 hers.push(h);
 
                 return was_idle;
             }
 
-            bool handle_feedback() {
+            bool handle_feedback()
+            {
                 assert(task_in_flight>0);
                 task_in_flight--;
-                if (state == HHDraining) state = PHReady;
-                else if (state == PHDraining && task_in_flight == 0) {
-                    if (has_th) state = THReady;
-                    else state = Idle;
+
+                if (state == HHDraining) {
+                    state = PHReady;
+                } else if (state == PHDraining && task_in_flight == 0) {
+                    if (has_th) {
+                        state = THReady;
+                    } else {
+                        state = Idle;
+                    }
+                } else if (state == THReady) {
+                    state = Idle;
                 }
-                else if (state == THReady) state = Idle;
-                printf("FMQ feedback; state: %u\n", state);
+
+                //printf("FMQ feedback; state: %u\n", state);
                 return state == Idle;
             }
 
@@ -168,24 +199,27 @@ namespace PsPIN
                     state = HHDraining;
                 } else if (state == PHReady) {
                     t.handler_addr = h.her_meta_ph_addr;
-                    
                     // if this is the last task we send, then prepare for completion
-                    if (eom_seen && hers.size() == 1) state = PHDraining;
-                    else pop_her = true;
-
+                    if (eom_seen && hers.size() == 1) {
+                        state = PHDraining;
+                    } else {
+                        pop_her = true;
+                    }
                 } else {
+                    assert(state == THReady);
                     t.handler_addr = h.her_meta_th_addr;
                     pop_her = true;
                 }
                 
                 t.handler_size = 4096;
+                t.msgid = h.her_msgid;
+                t.pkt_addr = h.her_addr;
+                t.pkt_size = h.her_xfer_size;
+                t.trigger_feedback = pop_her;
                 t.host_mem_addr = h.her_meta_host_mem_addr;
                 t.host_mem_size = h.her_meta_host_mem_size;
                 t.l2_mem_addr = h.her_meta_handler_mem_addr;
                 t.l2_mem_size = h.her_meta_handler_mem_size;
-                t.msgid = h.her_msgid;
-                t.pkt_addr = h.her_addr;
-                t.pkt_size = h.her_xfer_size;
                 t.scratchpad_addr[0] = h.her_meta_scratchpad_0_addr;
                 t.scratchpad_size[0] = h.her_meta_scratchpad_0_size;
                 t.scratchpad_addr[1] = h.her_meta_scratchpad_1_addr;
@@ -194,69 +228,94 @@ namespace PsPIN
                 t.scratchpad_size[2] = h.her_meta_scratchpad_2_size;
                 t.scratchpad_addr[3] = h.her_meta_scratchpad_3_addr;
                 t.scratchpad_size[3] = h.her_meta_scratchpad_3_size;
-                t.trigger_feedback = pop_her;
 
-
-                printf("FMQ state=%u; trigger_feedback=%u\n", state, pop_her);
-                if (pop_her) hers.pop();
+                // printf("FMQ state=%u; trigger_feedback=%u\n", state, pop_her);
+                if (pop_her)
+                    hers.pop();
 
                 return t;
             }
 
-            bool is_idle() {
+            bool is_idle()
+            {
                 return state == Idle;
             }
 
-            bool is_ready() {
+            bool is_ready()
+            {
                 return !hers.empty() && (state == HHReady || state == PHReady || state == THReady);
             }
 
         private:
-            enum State {Idle=0, HHReady, HHDraining, PHReady, PHDraining, THReady};
+
+            enum State {
+                Idle = 0,
+                HHReady,
+                HHDraining,
+                PHReady,
+                PHDraining,
+                THReady
+            };
 
         private:
+
             std::queue<HER> hers;
             State state;
             bool eom_seen;
             bool has_th;
             uint32_t task_in_flight;
+
         };
 
-        class FMQRRArbiter {
+        class FMQRRArbiter
+        {
 
         public:
-            FMQRRArbiter(std::vector<FMQ> &fmqs)
-            : fmqs(fmqs), next(0)
-            {}
+
+            FMQRRArbiter(std::vector<FMQ> &fmqs) : fmqs(fmqs), next(0)
+            {
+
+            }
 
             bool is_one_ready()
             {
-                for (int i=0; i<fmqs.size(); i++)
-                {
+                for (int i = 0; i < fmqs.size(); i++) {
                     if (fmqs[i].is_ready()) return true;
                 }
+
                 return false;
             }
 
             FMQ& get_next() 
             {
-                for (int i=0; i<fmqs.size(); i++) {
+                for (int i = 0; i < fmqs.size(); i++) {
                     FMQ& curr = fmqs[next];
                     next = (next + 1) % fmqs.size();
-                    if (curr.is_ready()) return curr;
+                    if (curr.is_ready()) {
+                        return curr;
+                    }
                 }
                 assert(0);
             }
 
         private:
+
             std::vector<FMQ> &fmqs;
             uint32_t next;
+
         };
 
     public:
 
-        FMQEngine(fmq_control_port_concrete_t& ni_port, task_control_port_t& sched_port, uint32_t num_fmqs = 1024) 
-        : ni_port(ni_port), sched_port(sched_port), feedback_buffer(1), feedbacks_to_send(0), fmq_arbiter(fmqs), num_fmqs(num_fmqs), active_fmqs(0)
+        FMQEngine(fmq_control_port_concrete_t& ni_port,
+                  task_control_port_t& sched_port,
+                  uint8_t *finish_port,
+                  uint32_t num_fmqs = 1024)
+            : ni_port(ni_port), sched_port(sched_port),
+              sim_finish_port_o(finish_port),
+              feedback_buffer(1), feedbacks_to_send(0),
+              fmq_arbiter(fmqs), num_fmqs(num_fmqs),
+              active_fmqs(0)
         {
             //clean NI port state
             this->ni_port.her_ready_o = 1;
@@ -268,6 +327,8 @@ namespace PsPIN
 
             sched_not_ready = false;
             ni_not_ready = false;
+
+            *sim_finish_port_o = 0;
 
             fmqs.resize(num_fmqs);
         }
@@ -300,9 +361,8 @@ namespace PsPIN
 
         void check_new_tasks_posedge() 
         {
-            if (ni_port.her_ready_o && ni_port.her_valid_i) 
-            {
-                SIM_PRINT("Received HER from NIC\n");
+            if (ni_port.her_ready_o && ni_port.her_valid_i) {
+                //SIM_PRINT("Received HER from NIC\n");
                 HER new_her;
                 new_her.her_msgid                   = ni_port.her_msgid_i;
                 new_her.her_is_eom                  = ni_port.her_is_eom_i;
@@ -329,22 +389,25 @@ namespace PsPIN
                 new_her.her_meta_scratchpad_3_size  = ni_port.her_meta_scratchpad_3_size_i;
 
                 bool was_idle = get_fmq(new_her.her_msgid).push_her(new_her);
-                if (was_idle) active_fmqs++;
+                if (was_idle) {
+                    active_fmqs++;
+                }
             }
         }
 
         void check_new_feedbacks_posedge()
         {
             *sched_port.feedback_ready_o = 0;
-            if (feedback_buffer.is_full()) return;
+            if (feedback_buffer.is_full())
+                return;
 
-            if (*sched_port.feedback_valid_i)
-            {
+            if (*sched_port.feedback_valid_i) {
                 SIM_PRINT("Received feedback from scheduler\n");
                 *sched_port.feedback_ready_o = 1;
 
                 bool become_idle = get_fmq(*sched_port.feedback_msgid_i).handle_feedback();
-                if (become_idle) active_fmqs--;
+                if (become_idle)
+                    active_fmqs--;
 
                 Feedback f;
                 f.feedback_her_addr = *sched_port.feedback_her_addr_i;
@@ -357,17 +420,20 @@ namespace PsPIN
 
         void progress_feedbacks_posedge()
         {
-            // ni_not_ready is the case where we are already trying to send a feedback but the NI is not ready (stalling on feedbacks)
-            if (ni_not_ready) {
+            // ni_not_ready is the case where we are already trying to send
+            // a feedback but the NI is not ready (stalling on feedbacks)
+            if (ni_not_ready)
                 return;
-            }
+
             // the stall is over, let's reset the valid signal
             ni_port.feedback_valid_o = 0;
 
             // if we don't have nothing to send then return
-            if (feedback_buffer.is_empty()) return;
+            if (feedback_buffer.is_empty())
+                return;
 
             Feedback& f = feedback_buffer.front();
+
             ni_port.feedback_her_addr_o = f.feedback_her_addr;
             ni_port.feedback_her_size_o = f.feedback_her_size;
             ni_port.feedback_msgid_o = f.feedback_msgid;
@@ -381,19 +447,20 @@ namespace PsPIN
         void progress_feedbacks_negedge()
         {
             ni_not_ready = false;
-            if (ni_port.feedback_valid_o && !(ni_port.feedback_ready_i))
-            {
+            if (ni_port.feedback_valid_o && !(ni_port.feedback_ready_i)) {
                 ni_not_ready = true;
             }
         }
 
         void produce_output_posedge()
         {
-            if (sched_not_ready) return;
+            if (sched_not_ready)
+                return;
 
             *sched_port.task_valid_o = 0;
 
-            if (!fmq_arbiter.is_one_ready()) return;
+            if (!fmq_arbiter.is_one_ready())
+                return;
 
             FMQ& fmq_to_sched = fmq_arbiter.get_next();
 
@@ -418,7 +485,6 @@ namespace PsPIN
             *sched_port.task_o.scratchpad_addr[3] = task.scratchpad_addr[3];
             *sched_port.task_o.scratchpad_size[3] = task.scratchpad_size[3];
             *sched_port.task_o.trigger_feedback = task.trigger_feedback;
-
             *sched_port.task_valid_o = 1;
 
             SIM_PRINT("Sending task to scheduler\n");
@@ -427,17 +493,16 @@ namespace PsPIN
         void produce_output_negedge() 
         {
             sched_not_ready = false;
-            if (*sched_port.task_valid_o && !(*sched_port.task_ready_i))
-            {
+            if (*sched_port.task_valid_o && !(*sched_port.task_ready_i)) {
                 sched_not_ready = true;
             }
         }
 
         void check_termination_posedge()
         {
-            if (ni_port.eos_i && active_fmqs==0) {
+            if (ni_port.eos_i && active_fmqs == 0) {
                 printf("Simulation termination detected!\n");
-                exit(0);
+                *sim_finish_port_o = 1;
             }
         }
 
@@ -453,8 +518,10 @@ namespace PsPIN
         }
 
     private:
+
         fmq_control_port_concrete_t& ni_port;
         task_control_port_t& sched_port;
+        uint8_t *sim_finish_port_o;
 
         std::vector<FMQ> fmqs;
 
@@ -468,6 +535,7 @@ namespace PsPIN
 
         uint32_t num_fmqs;
         uint32_t active_fmqs;
+
     };
 
 }

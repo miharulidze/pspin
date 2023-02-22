@@ -141,7 +141,7 @@ int pspinsim_init(int argc, char **argv, pspin_conf_t *conf)
     no = new NICOutbound<AXIPort<uint32_t, uint64_t>>(no_mst, no_cmd, conf->no_conf.network_G, conf->no_conf.max_pkt_size, conf->no_conf.max_network_queue_len);
     pcie_slv = new PCIeSlave<AXIPort<uint64_t, uint64_t>>(pcie_slv_port, conf->pcie_slv_conf.axi_aw_buffer, conf->pcie_slv_conf.axi_w_buffer, conf->pcie_slv_conf.axi_ar_buffer, conf->pcie_slv_conf.axi_r_buffer, conf->pcie_slv_conf.axi_b_buffer, conf->pcie_slv_conf.pcie_L, conf->pcie_slv_conf.pcie_G);
     pcie_mst = new PCIeMaster<AXIPort<uint32_t, uint64_t>>(pcie_mst_port);
-    fmq_eng = new FMQEngine(fmq_input_port, sched_port);
+    fmq_eng = new FMQEngine(fmq_input_port, sched_port, &(tb->sim_finish_i));
 
     // Add simulation only modules
     sim->add_module(*ni);

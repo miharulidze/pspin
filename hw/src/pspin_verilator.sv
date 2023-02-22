@@ -31,6 +31,7 @@ module pspin_verilator #(
     output logic                            pspin_active_o,
 
     // termination signal 
+    input  logic                            sim_finish_i,
     input  logic                            eos_i,
 
     // MPQ full signal
@@ -422,11 +423,11 @@ module pspin_verilator #(
     end
     
     // // Wait for termination
-    // always_ff @(posedge clk_i, negedge rst_ni) begin
-    //   if (i_pspin.i_mpq_engine.mpq_busy == '0 && i_pspin.i_mpq_engine.eos_i && i_pspin.i_mpq_engine.fifo_empty) begin
-    //     $finish;
-    //   end
-    // end
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+       if (sim_finish_i) begin
+         $finish;
+       end
+    end
 
     /* enable instruction fetch signal */
     assign cl_fetch_en = (rst_ni) ? 4'b1111 : '0;
