@@ -18,13 +18,10 @@
 #include "gdriver.h"
 #include "../handlers/synthetic.h"
 
-int match_ectx_cb(char *arg1, char *arg2)
+int match_ectx_cb(char *src, char *dst, char *ectx_addr)
 {
-    const char *src_addr = arg1; // arg1 is source address of packet in trace
-    const char *ectx_match_addr = arg2;
-
-    if (!strcmp(src_addr, ectx_match_addr)) {
-	printf("DEBUG: %s %s\n", src_addr, ectx_match_addr);
+    if (!strcmp(dst, ectx_addr)) {
+        printf("DEBUG: src=%s matching_ctx=%s\n", dst, ectx_addr);
         return 1;
     }
 
@@ -38,24 +35,23 @@ int main(int argc, char **argv)
     const char *ph = "synthetic_ph";
     const char *th = NULL;
     const char *base_addr = "192.168.0.";
+
     char matching_addr[GDRIVER_MATCHING_CTX_MAXSIZE];
     benchmark_params_t params;
     int ectx_num, ret;
 
     params.loop_spin_count = 10;
-    params.dma_to_size = 64;
-    params.dma_to_count = 10;
-    params.dma_from_size = 64;
-    params.dma_from_count = 10;
 
     if (gdriver_init(argc, argv, match_ectx_cb, &ectx_num) != GDRIVER_OK)
         return EXIT_FAILURE;
 
     for (int ectx_id = 0; ectx_id < ectx_num; ectx_id++) {
         sprintf(matching_addr, "%s%u", base_addr, ectx_id);
-	ret = gdriver_add_ectx(handlers_file, hh, ph, th, NULL,
-	    (void *)&params, sizeof(params), matching_addr, strlen(matching_addr) + 1);
-	if (ret != GDRIVER_OK) {
+        ret = gdriver_add_ectx(handlers_file, hh, ph, th, NULL,
+                               (void *)&params, sizeof(params),
+                               matching_addr,
+                               strlen(matching_addr) + 1);
+        if (ret != GDRIVER_OK) {
             return EXIT_FAILURE;
         }
     }

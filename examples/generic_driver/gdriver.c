@@ -42,6 +42,8 @@
 #define SCRATCHPAD_SIZE (800 * 1024)
 #define SCRATCHPAD_EC_CHUNK_SIZE (SCRATCHPAD_SIZE / EC_MAX_NUM)
 
+#define WAIT_CYCLES_PER_BYTE (0.02)
+
 #define EC_MEM_BASE_ADDR(generic_ectx_id, base, chunk_size) \
     (base + (generic_ectx_id * chunk_size))
 
@@ -106,14 +108,12 @@ static void gdriver_dump_ectx_info(const gdriver_ectx_t *gectx)
     printf("[GDRIVER] matching context=%s\n", gectx->matching_ctx ? gectx->matching_ctx : "NULL");
 }
 
-static void gdriver_fill_pkt(int ectx_idx, uint32_t msg_idx, uint32_t pkt_idx,
-    uint8_t *pkt_buf, uint32_t pkt_size, uint32_t *l1_pkt_size)
+static void gdriver_fill_pkt(int ectx_id, uint8_t *pkt_buf, uint32_t pkt_size)
 {
     pkt_hdr_t *hdr;
 
-    if (sim_state.ectxs[ectx_idx].pkt_fill_cb != NULL) {
-        pkt_size = sim_state.ectxs[ectx_idx].pkt_fill_cb(
-            msg_idx, pkt_idx, pkt_buf, sim_state.tgen.packet_size, l1_pkt_size);
+    if (sim_state.ectxs[ectx_id].pkt_fill_cb != NULL) {
+        pkt_size = sim_state.ectxs[ectx_id].pkt_fill_cb(ectx_id, pkt_buf, pkt_size);
     } else {
         // generate IP+UDP headers
         hdr = (pkt_hdr_t*)pkt_buf;
@@ -121,8 +121,6 @@ static void gdriver_fill_pkt(int ectx_idx, uint32_t msg_idx, uint32_t pkt_idx,
         hdr->ip_hdr.length = pkt_size;
         // TODO: set other fields
     }
-
-    *l1_pkt_size = pkt_size;
 }
 
 static void gdriver_generate_packets()
@@ -137,18 +135,21 @@ static void gdriver_generate_packets()
     pkt_buf = (uint8_t *)malloc(sizeof(uint8_t) * (sim_state.tgen.packet_size));
     assert(pkt_buf != NULL);
 
+    /* each ectx can occupy multple FMQs */
     for (int ectx_idx = 0; ectx_idx < sim_state.num_ectxs; ectx_idx++) {
         for (uint32_t msg_idx = 0; msg_idx < sim_state.tgen.num_messages; msg_idx++) {
             for (uint32_t pkt_idx = 0; pkt_idx < sim_state.tgen.num_packets; pkt_idx++) {
                 pkt_size = sim_state.tgen.packet_size;
 
-                gdriver_fill_pkt(ectx_idx, global_msg_counter + msg_idx, global_packet_counter + pkt_idx,
-                    pkt_buf, pkt_size, &l1_pkt_size);
+                gdriver_fill_pkt(global_msg_counter + msg_idx, pkt_buf, pkt_size);
+
                 is_last = (pkt_idx + 1 == sim_state.tgen.num_packets);
                 delay = (is_last) ? sim_state.tgen.message_delay : sim_state.tgen.packet_delay;
 
+                /* FIXME: pass pkt size only once! */
                 pspinsim_packet_add(&(sim_state.ectxs[ectx_idx].ectx), global_msg_counter + msg_idx,
-                    pkt_buf, pkt_size, l1_pkt_size, is_last, delay, 0);
+                                    pkt_buf, pkt_size, pkt_size, is_last, delay, 0);
+                
 
                 sim_state.tgen.packets_sent++;
                 global_packet_counter++;
@@ -177,40 +178,36 @@ static void gdriver_parse_trace()
 
     /* Parse trace header */
     ret = fscanf(trace_file, "%u %u %u\n", &nsources, &npackets, &max_pkt_size);
-    assert(nsources > 0 && nsources <= sim_state.num_ectxs);
+    assert(nsources > 0 && nsources == sim_state.num_ectxs);
     assert(npackets > 0);
 
     pkt_buf = (uint8_t *)malloc(sizeof(uint8_t) * max_pkt_size);
     assert(pkt_buf != NULL);
 
     sim_state.ttrace.packets_parsed = 0;
-    wait_cycles = 0;
+
     while (!feof(trace_file)) {
-        ret = fscanf(trace_file, "%s %s %u %u %u %u\n", src_addr, dst_addr, &pkt_size, &ipg, &msgid, &is_last);
-        assert(ret == 6);
-        printf("%s %s %u %u %u %u\n", src_addr, dst_addr, pkt_size, ipg, msgid, is_last);
+        ret = fscanf(trace_file, "%s %s %u %u\n", src_addr, dst_addr, &pkt_size, &is_last);
+        assert(ret == 4);
+        printf("%s %s %u %u\n", src_addr, dst_addr, pkt_size, is_last);
 
-        if (pkt_size == 0) {
-            assert(wait_cycles == 0);
-            assert(ipg > 0);
-            wait_cycles = ipg;
-        } else {
-            assert(ipg == 0);
-            matched = 0;
-            for (ectx_id = 0; ectx_id < sim_state.num_ectxs; ectx_id++) {
-                if (sim_state.ttrace.matching_cb(src_addr, sim_state.ectxs[ectx_id].matching_ctx)) {
-                    matched = 1;
-                    break;
-                }
+        matched = 0;
+        for (ectx_id = 0; ectx_id < sim_state.num_ectxs; ectx_id++) {
+            if (sim_state.ttrace.matching_cb(src_addr, dst_addr, sim_state.ectxs[ectx_id].matching_ctx)) {
+                matched = 1;
+                break;
             }
-            assert(matched);
-
-            gdriver_fill_pkt(ectx_id, msgid, 0, pkt_buf, pkt_size, &l1_pkt_size);
-            pspinsim_packet_add(&(sim_state.ectxs[ectx_id].ectx), msgid,
-                pkt_buf, pkt_size, l1_pkt_size, is_last, wait_cycles, 0);
-
-            wait_cycles = 0;
         }
+
+        assert(matched);
+
+        gdriver_fill_pkt(ectx_id, pkt_buf, pkt_size);
+        wait_cycles = (int)(pkt_size * WAIT_CYCLES_PER_BYTE); /* + number of cycles determined by load */
+
+        /* 1:1 mapping between FMQs and ECTXs */
+        pspinsim_packet_add(&(sim_state.ectxs[ectx_id].ectx), ectx_id,
+                            pkt_buf, pkt_size, pkt_size, is_last, wait_cycles, 0);
+
         sim_state.ttrace.packets_parsed++;
     }
 

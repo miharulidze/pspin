@@ -15,10 +15,9 @@
 #include <stdint.h>
 #include "gdriver.h"
 
-uint32_t fill_packet(uint32_t msg_idx, uint32_t pkt_idx, uint8_t *pkt_buff, uint32_t max_pkt_size, uint32_t* l1_pkt_size)
+uint32_t fill_packet(uint32_t ectx_idx, uint8_t *pkt_buff, uint32_t max_pkt_size)
 {
     // nothing to do here
-
     return max_pkt_size;
 }
 
