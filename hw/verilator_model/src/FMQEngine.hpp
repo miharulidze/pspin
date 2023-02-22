@@ -131,7 +131,7 @@ namespace PsPIN
 
         public:
 
-            FMQ(): state(Idle), eom_seen(false), task_in_flight(0)
+            FMQ(): state(Idle), eom_seen(false), priority(0), task_in_flight(0)
             {
 
             }
@@ -236,6 +236,16 @@ namespace PsPIN
                 return t;
             }
 
+            void set_priority(uint8_t prio)
+            {
+                priority = prio;
+            }
+
+            uint8_t get_priority()
+            {
+                return priority;
+            }
+
             bool is_idle()
             {
                 return state == Idle;
@@ -263,32 +273,53 @@ namespace PsPIN
             State state;
             bool eom_seen;
             bool has_th;
+            uint8_t priority;
             uint32_t task_in_flight;
 
         };
 
-        class FMQRRArbiter
+
+        class FMQArbiter
         {
 
         public:
 
-            FMQRRArbiter(std::vector<FMQ> &fmqs) : fmqs(fmqs), next(0)
-            {
-
-            }
+            virtual FMQ& get_next() = 0;
 
             bool is_one_ready()
             {
-                for (int i = 0; i < fmqs.size(); i++) {
-                    if (fmqs[i].is_ready()) return true;
+                for (int i=0; i<fmqs.size(); i++) {
+                    if (fmqs[i].is_ready())
+                        return true;
                 }
-
                 return false;
             }
 
-            FMQ& get_next() 
+            FMQArbiter(std::vector<FMQ> &fmqs) : fmqs(fmqs)
             {
-                for (int i = 0; i < fmqs.size(); i++) {
+
+            }
+
+        protected:
+
+            std::vector<FMQ> &fmqs;
+
+        };
+
+        class FMQRRArbiter : public FMQArbiter
+        {
+
+        public:
+
+            FMQRRArbiter(std::vector<FMQ> &fmqs)
+            : FMQArbiter(fmqs), next(0)
+            {
+
+            }
+
+            FMQ& get_next()
+            {
+                for (int i=0; i<fmqs.size(); i++) {
                     FMQ& curr = fmqs[next];
                     next = (next + 1) % fmqs.size();
                     if (curr.is_ready()) {
@@ -300,10 +331,51 @@ namespace PsPIN
 
         private:
 
-            std::vector<FMQ> &fmqs;
             uint32_t next;
 
         };
+
+
+        class FMQWRRArbiter : public FMQArbiter
+        {
+
+        public:
+
+            FMQWRRArbiter(std::vector<FMQ> &fmqs)
+                : FMQArbiter(fmqs), credit(0), curr(0)
+            {
+
+            }
+
+            FMQ& get_next()
+            {
+                if (credit == 0 || !fmqs[curr].is_ready()) {
+                    for (int i = 0; i < fmqs.size(); i++) {
+                        uint32_t next = (curr + 1) % fmqs.size();
+
+                        if (fmqs[next].is_ready()) {
+                            curr = next;
+                            credit = fmqs[next].get_priority() + 1;
+                            return fmqs[curr];
+                        }
+                        curr = next;
+                    }
+                    assert(0);
+                } else {
+                    assert(credit > 0);
+                    credit--;
+
+                    return fmqs[curr];
+                }
+            }
+
+        private:
+
+            uint8_t credit;
+            uint32_t curr;
+
+        };
+
 
     public:
 
@@ -313,8 +385,9 @@ namespace PsPIN
                   uint32_t num_fmqs = 1024)
             : ni_port(ni_port), sched_port(sched_port),
               sim_finish_port_o(finish_port),
-              feedback_buffer(1), feedbacks_to_send(0),
-              fmq_arbiter(fmqs), num_fmqs(num_fmqs),
+              feedback_buffer(1),
+              feedbacks_to_send(0),
+              num_fmqs(num_fmqs),
               active_fmqs(0)
         {
             //clean NI port state
@@ -328,9 +401,30 @@ namespace PsPIN
             sched_not_ready = false;
             ni_not_ready = false;
 
-            *sim_finish_port_o = 0;
-
             fmqs.resize(num_fmqs);
+
+            char* arbiter_type_env = getenv("FMQ_ARBITER_TYPE");
+            if (arbiter_type_env != nullptr) {
+                if (!strcmp(arbiter_type_env, "RR")) {
+                    printf("[DEBUG]: fmq_arbiter=RR\n");
+                    fmq_arbiter = new FMQRRArbiter(fmqs);
+                } else if (!strcmp(arbiter_type_env, "WRR")) {
+                    printf("[DEBUG]: fmq_arbiter=WRR\n");
+                    fmq_arbiter = new FMQWRRArbiter(fmqs);
+                } else {
+                    assert(0);
+                }
+            } else {
+                printf("[DEBUG]: fmq_arbiter=RR (default)\n");
+                fmq_arbiter = new FMQRRArbiter(fmqs);
+            }
+
+            *sim_finish_port_o = 0;
+        }
+
+        ~FMQEngine()
+        {
+            delete fmq_arbiter;
         }
 
         void posedge()
@@ -459,10 +553,10 @@ namespace PsPIN
 
             *sched_port.task_valid_o = 0;
 
-            if (!fmq_arbiter.is_one_ready())
+            if (!(fmq_arbiter->is_one_ready()))
                 return;
 
-            FMQ& fmq_to_sched = fmq_arbiter.get_next();
+            FMQ& fmq_to_sched = fmq_arbiter->get_next();
 
             Task task = fmq_to_sched.produce_next_task();
             
@@ -531,7 +625,7 @@ namespace PsPIN
 
         uint32_t feedbacks_to_send;
 
-        FMQRRArbiter fmq_arbiter;
+        FMQArbiter *fmq_arbiter;
 
         uint32_t num_fmqs;
         uint32_t active_fmqs;
