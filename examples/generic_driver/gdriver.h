@@ -22,8 +22,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef uint32_t (*fill_packet_fun_t)(uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t*);
-typedef int (*match_packet_fun_t)(char*, char*);
+typedef uint32_t (*fill_packet_fun_t)(uint32_t, uint8_t*, uint32_t);
+typedef int (*match_packet_fun_t)(char*, char*, char*);
 
 int gdriver_add_ectx(const char *hfile, const char *hh, const char *ph, const char *th,
     fill_packet_fun_t fill_cb, void *l2_img, size_t l2_img_size,
