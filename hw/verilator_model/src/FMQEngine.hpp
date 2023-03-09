@@ -38,7 +38,7 @@ namespace PsPIN
                 return elements.size() >= capacity;
             }
 
-            bool is_empty() 
+            bool is_empty()
             {
                 return elements.empty();
             }
@@ -55,7 +55,7 @@ namespace PsPIN
                 return elements.front();
             }
 
-            void pop() 
+            void pop()
             {
                 assert(!is_empty());
                 elements.pop();
@@ -94,7 +94,7 @@ namespace PsPIN
 
         };
 
-        class Feedback 
+        class Feedback
         {
 
         public:
@@ -106,7 +106,7 @@ namespace PsPIN
         };
 
 
-        class Task 
+        class Task
         {
 
         public:
@@ -151,7 +151,7 @@ namespace PsPIN
                 bool was_idle = false;
 
                 if (state==Idle) {
-                    was_idle=true; 
+                    was_idle=true;
                     fmq_init(h);
                 }
 
@@ -184,7 +184,7 @@ namespace PsPIN
                 return state == Idle;
             }
 
-            Task produce_next_task() 
+            Task produce_next_task()
             {
                 assert(this->is_ready());
                 task_in_flight++;
@@ -201,6 +201,7 @@ namespace PsPIN
                     t.handler_addr = h.her_meta_ph_addr;
                     // if this is the last task we send, then prepare for completion
                     if (eom_seen && hers.size() == 1) {
+                        pop_her = !has_th;
                         state = PHDraining;
                     } else {
                         pop_her = true;
@@ -210,7 +211,7 @@ namespace PsPIN
                     t.handler_addr = h.her_meta_th_addr;
                     pop_her = true;
                 }
-                
+
                 t.handler_size = 4096;
                 t.msgid = h.her_msgid;
                 t.pkt_addr = h.her_addr;
@@ -429,14 +430,14 @@ namespace PsPIN
 
         void posedge()
         {
-            // in this order there is at least one cycle between the receiving of a HER and 
+            // in this order there is at least one cycle between the receiving of a HER and
             // the scheduling of the respective task
             // oh well, if the compiler doesn't reorder these two
             produce_output_posedge();
             check_new_tasks_posedge();
 
-            // if we keep this call order, a feedback goes through 
-            // in a single cycle if it does not stall (as it happens 
+            // if we keep this call order, a feedback goes through
+            // in a single cycle if it does not stall (as it happens
             // in the cycle accurate simulation)
             check_new_feedbacks_posedge();
             progress_feedbacks_posedge();
@@ -453,7 +454,7 @@ namespace PsPIN
             produce_output_negedge();
         }
 
-        void check_new_tasks_posedge() 
+        void check_new_tasks_posedge()
         {
             if (ni_port.her_ready_o && ni_port.her_valid_i) {
                 //SIM_PRINT("Received HER from NIC\n");
@@ -559,7 +560,7 @@ namespace PsPIN
             FMQ& fmq_to_sched = fmq_arbiter->get_next();
 
             Task task = fmq_to_sched.produce_next_task();
-            
+
             //they should just be of the same type :(
             *sched_port.task_o.handler_addr = task.handler_addr;
             *sched_port.task_o.handler_size = task.handler_size;
@@ -584,7 +585,7 @@ namespace PsPIN
             SIM_PRINT("Sending task to scheduler\n");
         }
 
-        void produce_output_negedge() 
+        void produce_output_negedge()
         {
             sched_not_ready = false;
             if (*sched_port.task_valid_o && !(*sched_port.task_ready_i)) {
