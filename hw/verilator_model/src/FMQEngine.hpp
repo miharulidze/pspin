@@ -131,7 +131,8 @@ namespace PsPIN
 
         public:
 
-            FMQ(): state(Idle), eom_seen(false), priority(0), task_in_flight(0)
+            FMQ(): state(Idle), eom_seen(false), priority(0), task_in_flight(0),
+		   avg_tput(0.0), hpus_used(0), active_cycles(0)
             {
 
             }
@@ -247,6 +248,24 @@ namespace PsPIN
                 return priority;
             }
 
+	    void update_metric()
+	    {
+		if (hers.size() || task_in_flight > 0) {
+		    active_cycles++;
+		}
+
+		hpus_used += task_in_flight;
+
+		if (active_cycles > 0) {
+		    avg_tput = static_cast<double>(hpus_used) / static_cast<double>(active_cycles);
+		}
+	    }
+
+	    double get_metric()
+	    {
+		return avg_tput;
+	    }
+
             bool is_idle()
             {
                 return state == Idle;
@@ -276,6 +295,9 @@ namespace PsPIN
             bool has_th;
             uint8_t priority;
             uint32_t task_in_flight;
+	    double avg_tput;
+	    uint64_t hpus_used;
+	    uint64_t active_cycles;
 
         };
 
@@ -377,6 +399,43 @@ namespace PsPIN
 
         };
 
+	class FMQBVTArbiter : public FMQArbiter
+        {
+
+        public:
+
+            FMQBVTArbiter(std::vector<FMQ> &fmqs)
+                : FMQArbiter(fmqs), credit(0), curr(0)
+            {
+
+            }
+
+            FMQ& get_next()
+            {
+		double min_rank = std::numeric_limits<double>::max();
+
+		for (auto i = 0; i < fmqs.size(); i++) {
+		    FMQ &cur_fmq = fmqs[i];
+		    if (cur_fmq.is_ready()) {
+			double rank = cur_fmq.get_metric() / static_cast<double>(cur_fmq.get_priority());
+			if (rank < min_rank) {
+			    min_rank = rank;
+			    curr = i;
+			}
+		    }
+		}
+
+		assert(min_rank < UINT64_MAX);
+		return fmqs[curr];
+            }
+
+        private:
+
+            uint8_t credit;
+            uint32_t curr;
+
+        };
+
 
     public:
 
@@ -412,6 +471,9 @@ namespace PsPIN
                 } else if (!strcmp(arbiter_type_env, "WRR")) {
                     printf("[DEBUG]: fmq_arbiter=WRR\n");
                     fmq_arbiter = new FMQWRRArbiter(fmqs);
+		} else if (!strcmp(arbiter_type_env, "BVT")) {
+                    printf("[DEBUG]: fmq_arbiter=BVT\n");
+                    fmq_arbiter = new FMQBVTArbiter(fmqs);
                 } else {
                     assert(0);
                 }
@@ -549,6 +611,9 @@ namespace PsPIN
 
         void produce_output_posedge()
         {
+	    for (auto &fmq : fmqs)
+		fmq.update_metric();
+
             if (sched_not_ready)
                 return;
 
