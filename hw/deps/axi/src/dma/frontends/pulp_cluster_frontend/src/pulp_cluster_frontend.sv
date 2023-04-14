@@ -267,7 +267,7 @@ module pulp_cluster_frontend #(
     assign dma_rsp_valid_o = (tf_head == NumRegs) & !tf_empty & trans_complete;
     //     ack external tf    tf came from ext       valid       we are done :)
 
-    //---------NON SYNTHESIZABLE ---------------
+    /*//---------NON SYNTHESIZABLE ---------------
     `ifndef VERILATOR
     //pragma translate_off
     // log dma transfers to disk
@@ -360,7 +360,7 @@ module pulp_cluster_frontend #(
     end
     //pragma translate_on
     `endif
-    //---------NON SYNTHESIZABLE ---------------
+    *///---------NON SYNTHESIZABLE ---------------
 
     // map arbitrated transfer descriptor onto generic burst request
     always_comb begin : proc_map_to_1D_burst
@@ -409,12 +409,12 @@ module pulp_cluster_frontend #(
             .axi_req_t         ( axi_req_t       ),
             .axi_res_t         ( axi_res_t       ),
             .burst_req_t       ( burst_req_t     ),
-            .DmaIdWidth        ( 6               ),
-            .DmaTracing        ( 0               )
+            .DmaIdWidth        ( 32              ),
+            .DmaTracing        ( 1               )
         ) i_axi_dma_backend (
             .clk_i            ( clk_i                    ),
             .rst_ni           ( rst_ni                   ),
-            .dma_id_i         ( cluster_id_i + 100*i     ),
+            .dma_id_i         ( cluster_id_i*100 + i     ),
             .axi_dma_req_o    ( axi_dma_req_o [i]        ),
             .axi_dma_res_i    ( axi_dma_res_i [i]        ),
             .burst_req_i      ( dma_be_burst_req [i]     ),

@@ -146,7 +146,7 @@ module dmac_wrap
   typedef logic [DMA_AXI_AW_WIDTH-1  :0] addr_t;
   typedef logic [DMA_AXI_DW_WIDTH-1  :0] data_t;
   typedef logic [DMA_AXI_ID_WIDTH-1  :0] id_oup_t;
-  typedef logic [DMA_AXI_ID_SLV-1  :0] id_inp_t;
+  typedef logic [DMA_AXI_ID_SLV-1    :0] id_inp_t;
   typedef logic [DMA_AXI_DW_WIDTH/8-1:0] strb_t;
   typedef logic [DMA_AXI_UW_WIDTH-1  :0] user_t;
   `AXI_TYPEDEF_AW_CHAN_T(aw_chan_t, addr_t, id_oup_t, user_t);
@@ -164,8 +164,8 @@ module dmac_wrap
   `AXI_TYPEDEF_REQ_T    (axi_dma_slv_req_t, aw_slv_chan_t, w_chan_t, ar_slv_chan_t);
   `AXI_TYPEDEF_RESP_T   (axi_dma_slv_resp_t, b_slv_chan_t, r_slv_chan_t);
 
-  axi_dma_slv_req_t   axi_dma_req;
-  axi_dma_slv_resp_t  axi_dma_res;
+  axi_dma_slv_req_t  [NumStreams-1:0] axi_dma_req;
+  axi_dma_slv_resp_t [NumStreams-1:0] axi_dma_res;
 
   axi_dma_req_t  axi_dma_soc_req, axi_dma_tcdm_req;
   axi_dma_resp_t axi_dma_soc_res, axi_dma_tcdm_res;
@@ -266,17 +266,17 @@ module dmac_wrap
   // for (genvar i = 0; i < NumStreams; i++) begin
   axi_xbar #(
     .Cfg          ( XbarCfg                 ),
-    .slv_aw_chan_t( aw_chan_t               ),
+    .slv_aw_chan_t( aw_slv_chan_t           ),
     .mst_aw_chan_t( aw_chan_t               ),
     .w_chan_t     ( w_chan_t                ),
-    .slv_b_chan_t ( b_chan_t                ),
+    .slv_b_chan_t ( b_slv_chan_t            ),
     .mst_b_chan_t ( b_chan_t                ),
-    .slv_ar_chan_t( ar_chan_t               ),
+    .slv_ar_chan_t( ar_slv_chan_t           ),
     .mst_ar_chan_t( ar_chan_t               ),
-    .slv_r_chan_t ( r_chan_t                ),
+    .slv_r_chan_t ( r_slv_chan_t            ),
     .mst_r_chan_t ( r_chan_t                ),
-    .slv_req_t    ( axi_dma_req_t           ),
-    .slv_resp_t   ( axi_dma_resp_t          ),
+    .slv_req_t    ( axi_dma_slv_req_t       ),
+    .slv_resp_t   ( axi_dma_slv_resp_t      ),
     .mst_req_t    ( axi_dma_req_t           ),
     .mst_resp_t   ( axi_dma_resp_t          ),
     .rule_t       ( axi_pkg::xbar_rule_32_t )
@@ -311,7 +311,7 @@ module dmac_wrap
   // we bypass TCDM ic here -> this delay needs to be explicitly
   // calculated.
   logic ext_dma_vld;
-  always_ff @(posedge clk_i) begin : proc_delay_gnt_by_one
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_delay_gnt_by_one
     if(~rst_ni) begin
       ext_dma_vld <= 0;
     end else begin
