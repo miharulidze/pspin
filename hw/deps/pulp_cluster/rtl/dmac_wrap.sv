@@ -39,6 +39,7 @@ module dmac_wrap
   parameter DMA_AXI_ID_WIDTH   = 4,
   parameter DMA_AXI_UW_WIDTH   = 4,
   parameter TF_REQ_FIFO_DEPTH  = 4,
+  parameter NumStreams         = 8,
 
   parameter type dma_transf_descr_t = logic
 )
@@ -139,10 +140,13 @@ module dmac_wrap
     .mst    (ext_master)
   );
 
+  localparam DMA_AXI_ID_SLV = DMA_AXI_ID_WIDTH - $clog2(NumStreams);
+
   // axi definition
   typedef logic [DMA_AXI_AW_WIDTH-1  :0] addr_t;
   typedef logic [DMA_AXI_DW_WIDTH-1  :0] data_t;
   typedef logic [DMA_AXI_ID_WIDTH-1  :0] id_oup_t;
+  typedef logic [DMA_AXI_ID_SLV-1  :0] id_inp_t;
   typedef logic [DMA_AXI_DW_WIDTH/8-1:0] strb_t;
   typedef logic [DMA_AXI_UW_WIDTH-1  :0] user_t;
   `AXI_TYPEDEF_AW_CHAN_T(aw_chan_t, addr_t, id_oup_t, user_t);
@@ -152,20 +156,32 @@ module dmac_wrap
   `AXI_TYPEDEF_R_CHAN_T (r_chan_t, data_t, id_oup_t, user_t);
   `AXI_TYPEDEF_REQ_T    (axi_dma_req_t, aw_chan_t, w_chan_t, ar_chan_t);
   `AXI_TYPEDEF_RESP_T   (axi_dma_resp_t, b_chan_t, r_chan_t);
-  axi_dma_req_t   axi_dma_req, axi_dma_soc_req, axi_dma_tcdm_req, axi_dma_tcdm_r_req, axi_dma_tcdm_w_req;
-  axi_dma_resp_t  axi_dma_res, axi_dma_soc_res, axi_dma_tcdm_res, axi_dma_tcdm_r_res, axi_dma_tcdm_w_res;
+
+  `AXI_TYPEDEF_AW_CHAN_T(aw_slv_chan_t, addr_t, id_inp_t, user_t);
+  `AXI_TYPEDEF_B_CHAN_T (b_slv_chan_t, id_inp_t, user_t);
+  `AXI_TYPEDEF_AR_CHAN_T(ar_slv_chan_t, addr_t, id_inp_t, user_t);
+  `AXI_TYPEDEF_R_CHAN_T (r_slv_chan_t, data_t, id_inp_t, user_t);
+  `AXI_TYPEDEF_REQ_T    (axi_dma_slv_req_t, aw_slv_chan_t, w_chan_t, ar_slv_chan_t);
+  `AXI_TYPEDEF_RESP_T   (axi_dma_slv_resp_t, b_slv_chan_t, r_slv_chan_t);
+
+  axi_dma_slv_req_t   axi_dma_req;
+  axi_dma_slv_resp_t  axi_dma_res;
+
+  axi_dma_req_t  axi_dma_soc_req, axi_dma_tcdm_req;
+  axi_dma_resp_t axi_dma_soc_res, axi_dma_tcdm_res;
 
   // new axi dma
   pulp_cluster_frontend #(
     .NumCores       ( NB_CORES                             ),
     .PerifIdWidth   ( PE_ID_WIDTH                          ),
-    .DmaAxiIdWidth  ( DMA_AXI_ID_WIDTH                     ),
+    .DmaAxiIdWidth  ( DMA_AXI_ID_SLV                       ),
     .DmaDataWidth   ( DMA_AXI_DW_WIDTH                     ),
     .DmaAddrWidth   ( DMA_AXI_AW_WIDTH                     ),
     .AxiAxReqDepth  ( 12                                   ), // TODO: tune me
     .TfReqFifoDepth ( TF_REQ_FIFO_DEPTH                    ), // TODO: tune me
-    .axi_req_t      ( axi_dma_req_t                        ),
-    .axi_res_t      ( axi_dma_resp_t                       ),
+    .NumStreams     ( NumStreams                           ),
+    .axi_req_t      ( axi_dma_slv_req_t                    ),
+    .axi_res_t      ( axi_dma_slv_resp_t                   ),
     .transf_descr_t ( dma_transf_descr_t                   )
   ) i_pulp_cluster_frontend (
     .clk_i                   ( clk_i                   ),
@@ -229,7 +245,7 @@ module dmac_wrap
     }
   };
   localparam NumMstPorts = 2;
-  localparam NumSlvPorts = 1;
+  localparam NumSlvPorts = NumStreams;
 
   /* verilator lint_off WIDTHCONCAT */
   localparam axi_pkg::xbar_cfg_t XbarCfg = '{
@@ -239,14 +255,15 @@ module dmac_wrap
     MaxSlvTrans:                            32,
     FallThrough:                          1'b0,
     LatencyMode:        axi_pkg::CUT_ALL_PORTS,
-    AxiIdWidthSlvPorts:       DMA_AXI_ID_WIDTH,
-    AxiIdUsedSlvPorts:        DMA_AXI_ID_WIDTH,
+    AxiIdWidthSlvPorts:       DMA_AXI_ID_SLV,
+    AxiIdUsedSlvPorts:        DMA_AXI_ID_SLV,
     AxiAddrWidth:             DMA_AXI_AW_WIDTH,
     AxiDataWidth:             DMA_AXI_DW_WIDTH,
     NoAddrRules:                      NumRules
   };
   /* verilator lint_on WIDTHCONCAT */
 
+  // for (genvar i = 0; i < NumStreams; i++) begin
   axi_xbar #(
     .Cfg          ( XbarCfg                 ),
     .slv_aw_chan_t( aw_chan_t               ),
@@ -275,10 +292,19 @@ module dmac_wrap
     .en_default_mst_port_i  ( '0                                       ),
     .default_mst_port_i     ( '0                                       )
   );
+  // end
 
   // connect to external AXI
   `AXI_ASSIGN_FROM_REQ(s_wide_dma_soc, axi_dma_soc_req);
   `AXI_ASSIGN_TO_RESP (axi_dma_soc_res, s_wide_dma_soc);
+
+  //// wide interconnect before arbitration
+  //  WIDE_DMA_TCDM_BUS #(
+  //  .ADDR_WIDTH ( DMA_AXI_AW_WIDTH ),
+  //  .DATA_WIDTH ( DMA_AXI_DW_WIDTH )
+  //) s_wide_dma_superbanks_multi [NumStreams-1];
+
+  //for (genvar i = 0; i < NumStreams; i++) begin
 
   // the data returned by the memories is always valid 1 cycle later
   // this is usually handled by the TCDM interconnect correctly
@@ -317,6 +343,7 @@ module dmac_wrap
     .mem_rvalid_i ( ext_dma_vld                     ),
     .mem_rdata_i  ( s_wide_dma_superbanks.r_rdata   )
   );
+  // end
 
   // tie-off unused pulp ports
   assign s_tcdm_bus_req                     = '0;
