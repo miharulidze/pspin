@@ -4,5 +4,5 @@ SPIN_CFLAGS = -O3 -g ${DEFINITIONS}
 SPIN_LDFLAGS = -lm -flto
 
 include $(PSPIN_RT)/rules/spin-handlers.mk
-include ../generic_driver/gdriver.mk
+include ../osmosis/osmosis.mk
 

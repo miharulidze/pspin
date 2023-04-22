@@ -15,7 +15,6 @@
 #ifndef HOST
 #include <handler.h>
 #include <packets.h>
-#include <spin_dma.h>
 #else
 #include <handler_profiler.h>
 #endif
@@ -25,15 +24,15 @@
 __handler__ void dma_ph(handler_args_t *args)
 {
     task_t *task = args->task;
-    benchmark_params_t params = *(benchmark_params_t *)task->handler_mem;
-    char *dst_addr = (char *)task->pkt_mem + sizeof(ip_hdr_t);
-    char *src_addr = (char *)task->handler_mem + sizeof(benchmark_params_t);
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    benchmark_params_t params = *(benchmark_params_t *)payload_ptr;
+    char *src_addr = (char *)task->handler_mem;
     spin_dma_t dma;
 
     for (int i = 0; i < params.dma_count; i++) {
-        spin_dma((void *)src_addr, (void *)dst_addr,
-                 params.dma_read_size, 0, 0, &dma);
-        spin_dma_wait(dma);
+	spin_dma((void *)src_addr, (void *)payload_ptr,
+		 params.dma_read_size, 0, 0, &dma);
+	spin_dma_wait(dma);
     }
 }
 
