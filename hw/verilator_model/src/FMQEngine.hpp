@@ -677,6 +677,11 @@ namespace PsPIN
             return fmqs[msg_id];
         }
 
+	void set_fmq_priority(size_t fmq_idx, uint8_t prio)
+	{
+	    fmqs[fmq_idx].set_priority(prio);
+	}
+
     private:
 
         fmq_control_port_concrete_t& ni_port;

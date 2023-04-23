@@ -255,6 +255,8 @@ static int gdriver_init_ectx(gdriver_ectx_t *gectx, uint32_t gectx_id,
     if (ectx_conf->fmq_matching_rule.ptr)
         strcpy(gectx->matching_rule, ectx_conf->fmq_matching_rule.ptr);
 
+    pspinsim_set_fmq_prio(gectx_id, ectx_conf->slo.compute_prio);
+
     gdriver_dump_ectx_info(gectx);
 
     return GDRIVER_OK;

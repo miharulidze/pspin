@@ -199,6 +199,11 @@ int pspinsim_fini()
     return SPIN_SUCCESS;
 }
 
+void pspinsim_set_fmq_prio(uint32_t fmq_idx, uint8_t prio)
+{
+    fmq_eng->set_fmq_priority(fmq_idx, prio);
+}
+
 int pspinsim_packet_trace_read(const char* pkt_file_path, const char* data_file_path)
 {
     return ni->read_trace(pkt_file_path, data_file_path);
