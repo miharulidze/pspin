@@ -111,7 +111,7 @@ module l2_xbar #(
     .req_t        (req_t),
     .resp_t       (resp_t),
     .NoMstPorts   (3),
-    .MaxTrans     (8), // TODO: calibrate
+    .MaxTrans     (128), // TODO: calibrate
     .AxiLookBits  (IdWidth),
     .FallThrough  (1'b1),
     .SpillAw      (1'b0),
@@ -188,7 +188,7 @@ module l2_xbar #(
     .req_t        (req_t),
     .resp_t       (resp_t),
     .NoMstPorts   (3),
-    .MaxTrans     (8), // TODO: calibrate
+    .MaxTrans     (128), // TODO: calibrate
     .AxiLookBits  (IdWidth),
     .FallThrough  (1'b1),
     .SpillAw      (1'b0),
@@ -266,7 +266,7 @@ module l2_xbar #(
     .mst_req_t      (hnd_mux_req_t),
     .mst_resp_t     (hnd_mux_resp_t),
     .NoSlvPorts     (HndNumSlvPorts),
-    .MaxWTrans      (8),  // TODO: calibrate
+    .MaxWTrans      (128),  // TODO: calibrate
     .FallThrough    (1'b0),
     .SpillAw        (1'b0),
     .SpillW         (1'b0),
@@ -286,7 +286,7 @@ module l2_xbar #(
     .AxiSlvPortIdWidth    (HndMuxIdWidth),
     .AxiMstPortIdWidth    (IdWidth),
     .AxiSlvPortMaxUniqIds (8),  // TODO: calibrate
-    .AxiMaxTxnsPerId      (2),  // TODO: calibrate (=depth of store buffer?)
+    .AxiMaxTxnsPerId      (128),  // TODO: calibrate (=depth of store buffer?)
     .slv_req_t            (hnd_mux_req_t),
     .slv_resp_t           (hnd_mux_resp_t),
     .mst_req_t            (req_t),
@@ -317,7 +317,7 @@ module l2_xbar #(
     .mst_req_t      (pkt_mux_req_t),
     .mst_resp_t     (pkt_mux_resp_t),
     .NoSlvPorts     (PktNumSlvPorts),
-    .MaxWTrans      (8),  // TODO: calibrate
+    .MaxWTrans      (128),  // TODO: calibrate
     .FallThrough    (1'b0),
     .SpillAw        (1'b0),
     .SpillW         (1'b0),
@@ -337,7 +337,7 @@ module l2_xbar #(
     .AxiSlvPortIdWidth    (PktMuxIdWidth),
     .AxiMstPortIdWidth    (IdWidth),
     .AxiSlvPortMaxUniqIds (8),  // TODO: calibrate
-    .AxiMaxTxnsPerId      (8),  // TODO: calibrate (bound by latency to SRAMs), 4 should be enough
+    .AxiMaxTxnsPerId      (128),  // TODO: calibrate (bound by latency to SRAMs), 4 should be enough
     .slv_req_t            (pkt_mux_req_t),
     .slv_resp_t           (pkt_mux_resp_t),
     .mst_req_t            (req_t),

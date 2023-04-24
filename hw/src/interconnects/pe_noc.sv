@@ -112,8 +112,8 @@ module pe_noc #(
   localparam axi_pkg::xbar_cfg_t xbar_cfg = '{
     NoSlvPorts:         NumClusters,
     NoMstPorts:         NumMstPorts,
-    MaxMstTrans:        8, // TODO: calibrate
-    MaxSlvTrans:        8, // TODO: calibrate
+    MaxMstTrans:        128, // TODO: calibrate
+    MaxSlvTrans:        128, // TODO: calibrate
     FallThrough:        1'b0,
     LatencyMode:        axi_pkg::CUT_ALL_PORTS,
     AxiIdWidthSlvPorts: ClOupIdWidth,
@@ -159,7 +159,7 @@ module pe_noc #(
       .AxiSlvPortIdWidth    (XbarOupIdWidth),
       .AxiMstPortIdWidth    (ClInpIdWidth),
       .AxiSlvPortMaxUniqIds (8),  // TODO: calibrate
-      .AxiMaxTxnsPerId      (2),  // TODO: calibrate (=depth of store buffer?)
+      .AxiMaxTxnsPerId      (128),  // TODO: calibrate (=depth of store buffer?)
       .slv_req_t            (xbar_oup_req_t),
       .slv_resp_t           (xbar_oup_resp_t),
       .mst_req_t            (cl_inp_req_t),
@@ -188,7 +188,7 @@ module pe_noc #(
     .AxiSlvPortIdWidth    (XbarOupIdWidth),
     .AxiMstPortIdWidth    (L2IdWidth),
     .AxiSlvPortMaxUniqIds (8),  // TODO: calibrate
-    .AxiMaxTxnsPerId      (2),  // TODO: calibrate (=depth of store buffer?)
+    .AxiMaxTxnsPerId      (128),  // TODO: calibrate (=depth of store buffer?)
     .slv_req_t            (xbar_oup_req_t),
     .slv_resp_t           (xbar_oup_resp_t),
     .mst_req_t            (cl_l2_req_t),
@@ -208,7 +208,7 @@ module pe_noc #(
   `AXI_TYPEDEF_W_CHAN_T(l2_w_t, l2_data_t, l2_strb_t, user_t)
   `AXI_TYPEDEF_R_CHAN_T(l2_r_t, l2_data_t, l2_id_t, user_t)
   axi_dw_converter #(
-    .AxiMaxReads          (8),  // TODO: calibrate
+    .AxiMaxReads          (128),  // TODO: calibrate
     .AxiSlvPortDataWidth  (ClDataWidth),
     .AxiMstPortDataWidth  (L2DataWidth),
     .AxiAddrWidth         (AddrWidth),
@@ -247,7 +247,7 @@ module pe_noc #(
     .AxiSlvPortIdWidth    (XbarOupIdWidth),
     .AxiMstPortIdWidth    (PeriphIdWidth),
     .AxiSlvPortMaxUniqIds (4),  // TODO: calibrate
-    .AxiMaxTxnsPerId      (1),  // TODO: calibrate
+    .AxiMaxTxnsPerId      (128),  // TODO: calibrate
     .slv_req_t            (xbar_oup_req_t),
     .slv_resp_t           (xbar_oup_resp_t),
     .mst_req_t            (cl_periph_req_t),
@@ -267,7 +267,7 @@ module pe_noc #(
   `AXI_TYPEDEF_W_CHAN_T(periph_w_t, periph_data_t, periph_strb_t, user_t)
   `AXI_TYPEDEF_R_CHAN_T(periph_r_t, periph_data_t, periph_id_t, user_t)
   axi_dw_converter #(
-    .AxiMaxReads          (4),  // TODO: calibrate
+    .AxiMaxReads          (128),  // TODO: calibrate
     .AxiSlvPortDataWidth  (ClDataWidth),
     .AxiMstPortDataWidth  (PeriphDataWidth),
     .AxiAddrWidth         (AddrWidth),
