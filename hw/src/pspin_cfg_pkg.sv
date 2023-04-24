@@ -21,7 +21,7 @@ package automatic pspin_cfg_pkg;
   localparam int unsigned       AXI_IW                  = 6;
   localparam int unsigned       AXI_UW                  = pulp_cluster_cfg_pkg::AXI_UW;
 
-  localparam int unsigned       SOC_DMA_AXI_REQ_DEPTH   = 12;
+  localparam int unsigned       SOC_DMA_AXI_REQ_DEPTH   = 64;
   localparam int unsigned       SOC_DMA_REQ_FIFO_DEPT   = 64; //tune me!
 
   localparam int unsigned       C_SIZE_WIDTH            = AXI_AW;
@@ -57,7 +57,7 @@ package automatic pspin_cfg_pkg;
   localparam int unsigned       L1_SCRATCHPAD_SIZE      = L1_CLUSTER_ACTUAL_MEM_SIZE - L1_PKT_BUFF_OFFSET;
 
   //number of HERs that can be buffered (allows to overlap DMA transfer to running handlers)
-  localparam int unsigned       BUFFERED_HERS_PER_CLUSTER = 12;
+  localparam int unsigned       BUFFERED_HERS_PER_CLUSTER = 128;
 
   // the number of HERs in a cluster is the number of buffer ones + the ones running
   localparam int unsigned       NUM_HERS_PER_CLUSTER    = BUFFERED_HERS_PER_CLUSTER + NUM_CORES;

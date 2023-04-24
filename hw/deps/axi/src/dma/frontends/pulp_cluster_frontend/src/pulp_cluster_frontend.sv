@@ -85,7 +85,7 @@ module pulp_cluster_frontend #(
     localparam int unsigned IdxWidth = (NumRegs + 1 > 32'd1) ? unsigned'($clog2(NumRegs + 1)) : 32'd1;
 
     // buffer depth
-    localparam int unsigned BufferDepth = 3; // + 64;
+    localparam int unsigned BufferDepth = 512; // + 64;
 
     localparam int unsigned TfFifoDepth = TfReqFifoDepth + AxiAxReqDepth + BufferDepth + 1;
 

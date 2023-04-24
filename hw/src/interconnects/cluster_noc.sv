@@ -80,7 +80,7 @@ module cluster_noc #(
     .AxiSlvPortIdWidth    (NHIIdWidth),
     .AxiMstPortIdWidth    (ClIdWidth),
     .AxiSlvPortMaxUniqIds (8),  // TODO: calibrate
-    .AxiMaxTxnsPerId      (2),  // TODO: calibrate (=depth of store buffer?)
+    .AxiMaxTxnsPerId      (128),  // TODO: calibrate (=depth of store buffer?)
     .slv_req_t            (nhi_req_t),
     .slv_resp_t           (nhi_resp_t),
     .mst_req_t            (cl_req_t),
@@ -140,7 +140,7 @@ module cluster_noc #(
     .req_t        (cl_req_t),
     .resp_t       (cl_resp_t),
     .NoMstPorts   (NumClusters + 1),
-    .MaxTrans     (8), // TODO: calibrate
+    .MaxTrans     (128), // TODO: calibrate
     .AxiLookBits  (ClIdWidth),
     .FallThrough  (1'b1),
     .SpillAw      (1'b0),

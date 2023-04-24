@@ -83,7 +83,7 @@ module dma_noc #(
     .mst_req_t      (mux_req_t),
     .mst_resp_t     (mux_resp_t),
     .NoSlvPorts     (NumClusters),
-    .MaxWTrans      (8),  // TODO: calibrate
+    .MaxWTrans      (128),  // TODO: calibrate
     .FallThrough    (1'b0),
     .SpillAw        (1'b0),
     .SpillW         (1'b0),
@@ -105,7 +105,7 @@ module dma_noc #(
     .AxiSlvPortIdWidth    (MuxIdWidth),
     .AxiMstPortIdWidth    (L2IdWidth),
     .AxiSlvPortMaxUniqIds (8),  // TODO: calibrate
-    .AxiMaxTxnsPerId      (2),  // TODO: calibrate (=depth of store buffer?)
+    .AxiMaxTxnsPerId      (128),  // TODO: calibrate (=depth of store buffer?)
     .slv_req_t            (mux_req_t),
     .slv_resp_t           (mux_resp_t),
     .mst_req_t            (l2_req_t),

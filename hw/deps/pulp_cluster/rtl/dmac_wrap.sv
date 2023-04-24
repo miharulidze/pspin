@@ -162,7 +162,7 @@ module dmac_wrap
     .DmaAxiIdWidth  ( DMA_AXI_ID_WIDTH                     ),
     .DmaDataWidth   ( DMA_AXI_DW_WIDTH                     ),
     .DmaAddrWidth   ( DMA_AXI_AW_WIDTH                     ),
-    .AxiAxReqDepth  ( 12                                   ), // TODO: tune me
+    .AxiAxReqDepth  ( 1287                                 ), // TODO: tune me
     .TfReqFifoDepth ( TF_REQ_FIFO_DEPTH                    ), // TODO: tune me
     .axi_req_t      ( axi_dma_req_t                        ),
     .axi_res_t      ( axi_dma_resp_t                       ),
@@ -235,8 +235,8 @@ module dmac_wrap
   localparam axi_pkg::xbar_cfg_t XbarCfg = '{
     NoSlvPorts:                    NumSlvPorts,
     NoMstPorts:                    NumMstPorts,
-    MaxMstTrans:                            16,
-    MaxSlvTrans:                            32,
+    MaxMstTrans:                           256,
+    MaxSlvTrans:                           256,
     FallThrough:                          1'b0,
     LatencyMode:        axi_pkg::CUT_ALL_PORTS,
     AxiIdWidthSlvPorts:       DMA_AXI_ID_WIDTH,
@@ -300,7 +300,7 @@ module dmac_wrap
     .DataWidth   ( DMA_AXI_DW_WIDTH   ),
     .IdWidth     ( DMA_AXI_ID_WIDTH   ),
     .NumBanks    ( 1                  ), // Needs to be 1
-    .BufDepth    ( 4                  )  // TODO: tune me
+    .BufDepth    ( 64                 )  // TODO: tune me
   ) i_axi_to_mem (
     .clk_i        ( clk_i                           ),
     .rst_ni       ( rst_ni                          ),
