@@ -1,10 +1,10 @@
 TARGET_SLM ?= ${PSPIN_HW}/sim_files/slm_files
 TARGET_VSIM ?= ${PSPIN_HW}/${PSPIN_SIM}
-SPIN_APP_NAME ?= ""
+SPIN_KERNEL_NAME ?= ""
 TELEMETRY_KEY ?= ""
 INFO_KEY ?= ""
 DMA_KEY ?= ""
-HANDLERS_PREFIX ?= ${SPIN_APP_NAME}
+HANDLERS_PREFIX ?= ${SPIN_KERNEL_NAME}
 PKT_SIZE ?= 1024
 PKT_DELAY ?= 78
 MSG_DELAY ?= 78
@@ -31,29 +31,29 @@ build::
 	$(MAKE) conf io=uart CONFIG_OPT="uart/baudrate=115200"
 
 packets::
-	$(PSPIN_RT)/scripts/make_packets.sh ${NUM_PACKETS} ${SPIN_APP_NAME} ${HANDLERS_PREFIX} ${PKT_SIZE} ${PKT_DELAY} ${MSG_DELAY} ${FULL_PKT} ${MSG_COUNT} ${PKTGEN} ${PKTGEN_CUSTOM_PARAMS} ${HAS_HH} ${HAS_TH} ${PKT_SEED} ${CUSTOM_HDR_SIZE}
+	$(PSPIN_RT)/scripts/make_packets.sh ${NUM_PACKETS} ${SPIN_KERNEL_NAME} ${HANDLERS_PREFIX} ${PKT_SIZE} ${PKT_DELAY} ${MSG_DELAY} ${FULL_PKT} ${MSG_COUNT} ${PKTGEN} ${PKTGEN_CUSTOM_PARAMS} ${HAS_HH} ${HAS_TH} ${PKT_SEED} ${CUSTOM_HDR_SIZE}
 
 #TODO: trace, trace-chrome should go to stdout, not to a file! 
 trace::
-	perl $(PSPIN_RT)/scripts/tracevis/parse.pl -t build/$(SPIN_APP_NAME) $(TRACE_DIR)trace_core_* > $(SPIN_APP_NAME).trace.txt
+	perl $(PSPIN_RT)/scripts/tracevis/parse.pl -t build/$(SPIN_KERNEL_NAME) $(TRACE_DIR)trace_core_* > $(SPIN_KERNEL_NAME).trace.txt
 
 transcript::
 	cat $(TARGET_VSIM)/transcript
 
 trace-chrome::
-	perl $(PSPIN_RT)/scripts/tracevis/parse.pl  build/$(SPIN_APP_NAME) $(TRACE_DIR)trace_core_* > $(SPIN_APP_NAME).trace.json
+	perl $(PSPIN_RT)/scripts/tracevis/parse.pl  build/$(SPIN_KERNEL_NAME) $(TRACE_DIR)trace_core_* > $(SPIN_KERNEL_NAME).trace.json
 
 trace-stdout::
-	@perl $(PSPIN_RT)/scripts/tracevis/parse.pl -t build/$(SPIN_APP_NAME) $(TARGET_VSIM)/trace_core_*
+	@perl $(PSPIN_RT)/scripts/tracevis/parse.pl -t build/$(SPIN_KERNEL_NAME) $(TARGET_VSIM)/trace_core_*
 
 trace-chrome-stdout::
-	@perl $(PSPIN_RT)/scripts/tracevis/parse.pl build/$(SPIN_APP_NAME) $(TARGET_VSIM)/trace_core_*
+	@perl $(PSPIN_RT)/scripts/tracevis/parse.pl build/$(SPIN_KERNEL_NAME) $(TARGET_VSIM)/trace_core_*
 
 #telemetry::
-#	$(PSPIN_RT)/scripts/telemetry_time_tracevis.sh $(SPIN_APP_NAME).trace.txt $(TELEMETRY_KEY) "$(PSPIN_RT)/src/*.c ${SPIN_APP_SRCS}" > $(SPIN_APP_NAME).time.telemetry
+#	$(PSPIN_RT)/scripts/telemetry_time_tracevis.sh $(SPIN_KERNEL_NAME).trace.txt $(TELEMETRY_KEY) "$(PSPIN_RT)/src/*.c ${SPIN_KERNEL_SRCS}" > $(SPIN_KERNEL_NAME).time.telemetry
 
 #telemetry-instr::
-#	$(PSPIN_RT)/scripts/telemetry_instructions_tracevis.sh $(SPIN_APP_NAME).trace.txt $(TELEMETRY_KEY) "$(PSPIN_RT)/src/*.c ${SPIN_APP_SRCS}" > $(SPIN_APP_NAME).instructions.telemetry
+#	$(PSPIN_RT)/scripts/telemetry_instructions_tracevis.sh $(SPIN_KERNEL_NAME).trace.txt $(TELEMETRY_KEY) "$(PSPIN_RT)/src/*.c ${SPIN_KERNEL_SRCS}" > $(SPIN_KERNEL_NAME).instructions.telemetry
 
 #info::
 #	$(PSPIN_RT)/scripts/extract_info.sh $(INFO_KEY) $(TARGET_VSIM)/transcript
@@ -61,14 +61,14 @@ trace-chrome-stdout::
 
 info::
 	make trace;
-	$(PSPIN_RT)/scripts/handlers_data.sh $(INFO_KEY) $(SPIN_APP_NAME).trace.txt
+	$(PSPIN_RT)/scripts/handlers_data.sh $(INFO_KEY) $(SPIN_KERNEL_NAME).trace.txt
 
 dma::
 	$(PSPIN_RT)/scripts/extract_dma.sh $(DMA_KEY) $(TARGET_VSIM)
 
 patch:
 	@for file in ${PATCH_INTERNAL} ${PATCH_EXTERNAL}; do \
-		$(PSPIN_RT)/scripts/patch_bsw.sh $${file} build/bigpulp-juno/${SPIN_APP_NAME}/cl/${PSPIN_RT}/src/ "${PULP_CFLAGS}" ; \
+		$(PSPIN_RT)/scripts/patch_bsw.sh $${file} build/bigpulp-juno/${SPIN_KERNEL_NAME}/cl/${PSPIN_RT}/src/ "${PULP_CFLAGS}" ; \
 	done
 
 simulate::

@@ -1,5 +1,5 @@
-SPIN_APP_NAME = dma
-SPIN_APP_SRCS = handlers/dma.c
+SPIN_KERNEL_NAME = dma
+SPIN_KERNEL_SRCS = handlers/$(SPIN_KERNEL_NAME).c
 SPIN_CFLAGS = -O3 -g ${DEFINITIONS}
 SPIN_LDFLAGS = -lm -flto
 

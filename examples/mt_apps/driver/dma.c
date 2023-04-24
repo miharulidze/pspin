@@ -17,7 +17,7 @@
 
 #include <packets.h>
 #include "osmosis.h"
-#include "../handlers/dma.h"
+#include "../handlers/kernels.h"
 
 int match_ectx_cb(void *src, void *dst, void *ectx_addr)
 {
@@ -38,9 +38,9 @@ int main(int argc, char **argv)
 {
     int ectx_num, victim_ectx_id, attacker_ectx_id, ret;
 
-    const char *handlers_file = "build/dma";
+    const char *handlers_file = "build/kernels";
     const char *hh = NULL;
-    const char *ph = "dma_ph";
+    const char *ph = "dma_l2_read_ph";
     const char *th = NULL;
 
     if (gdriver_init(argc, argv, match_ectx_cb, &ectx_num) != GDRIVER_OK)
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
     attacker_conf.handler.th_name = th;
     attacker_conf.fmq_matching_rule.ptr = attacker_addr;
     attacker_conf.fmq_matching_rule.size = strlen(attacker_addr) + 1;
-    attacker_conf.slo.compute_prio = 1;
+    attacker_conf.slo.compute_prio = 2;
 
     attacker_ectx_id = gdriver_add_ectx(&attacker_conf);
     if (attacker_ectx_id == GDRIVER_ERR)

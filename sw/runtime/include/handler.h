@@ -304,3 +304,4 @@ static inline int spin_write_to_host(uint64_t host_addr, uint64_t user_data, spi
 //this function is only needed to avoid the compiler stripping away the handler functions (we don't reference them
 //from the code but have pointers to them in the ME)
 void init_handlers(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers2(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);

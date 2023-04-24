@@ -252,6 +252,8 @@ static int gdriver_init_ectx(gdriver_ectx_t *gectx, uint32_t gectx_id,
 			  (void *)0);
     }
 
+    memset(&gectx->pkt_filler, 0, sizeof(gectx->pkt_filler));
+
     if (ectx_conf->fmq_matching_rule.ptr)
         strcpy(gectx->matching_rule, ectx_conf->fmq_matching_rule.ptr);
 

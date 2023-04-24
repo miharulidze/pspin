@@ -4,7 +4,7 @@ OBJCOPY=${RISCV_GCC}/riscv32-unknown-elf-objcopy
 OBJDUMP=${RISCV_GCC}/riscv32-unknown-elf-objdump
 PULP_SDK=${PSPIN_RT}/pulp-sdk/
 
-TARGET_BIN=build/$(SPIN_APP_NAME)
+TARGET_BIN=build/$(SPIN_KERNEL_NAME)
 
 .PHONY: install deploy
 
@@ -15,8 +15,8 @@ INCLUDE_FILES=-I$(PULP_SDK)/archi/include -I$(PULP_SDK)/hal/include -I${PSPIN_HW
 PULP_SRCS=$(PULP_SDK)/runtime/libs/io/io.c $(PULP_SDK)/runtime/libs/io/tinyprintf.c
 PULP_INC=-I$(PULP_SDK)/runtime/libs/io/
 
-#SRC_FILES=$(PSPIN_RT)/src/hpu.c $(PSPIN_RT)/src/handler.c ${SPIN_APP_SRCS}
-SRC_FILES=$(PSPIN_RT)/runtime/src/hpu.c ${SPIN_APP_SRCS}
+#SRC_FILES=$(PSPIN_RT)/src/hpu.c $(PSPIN_RT)/src/handler.c ${SPIN_KERNEL_SRCS}
+SRC_FILES=$(PSPIN_RT)/runtime/src/hpu.c ${SPIN_KERNEL_SRCS}
 
 
 runtime-debug: 
@@ -32,12 +32,12 @@ runtime:
 deploy::
 	$(MAKE) runtime
 	mkdir -p build/slm_files/
-	$(OBJCOPY) --srec-len 1 --output-target=srec $(TARGET_BIN) build/$(SPIN_APP_NAME).s19
+	$(OBJCOPY) --srec-len 1 --output-target=srec $(TARGET_BIN) build/$(SPIN_KERNEL_NAME).s19
 	cd build/slm_files && \
-	$(PULP_SDK)/scripts/s19toslm.py ../$(SPIN_APP_NAME).s19 && \
+	$(PULP_SDK)/scripts/s19toslm.py ../$(SPIN_KERNEL_NAME).s19 && \
 	$(PULP_SDK)/bin/slm_conv -n 16384 -f l2_hnd_stim.slm -S 1 -P 32 && \
 	python $(PULP_SDK)/bin/rename_l2.py hnd 
-	$(OBJDUMP) -S build/$(SPIN_APP_NAME) > build/$(SPIN_APP_NAME).disasm
+	$(OBJDUMP) -S build/$(SPIN_KERNEL_NAME) > build/$(SPIN_KERNEL_NAME).disasm
 
 install:
 	mkdir -p build/
