@@ -7,6 +7,7 @@
 #include "pspin.hpp"
 #include "spin.h"
 #include "pspinsim.h"
+#include "spin_hw_conf.h"
 
 
 namespace PsPIN
@@ -248,13 +249,18 @@ namespace PsPIN
                 return priority;
             }
 
+	    uint32_t get_task_in_flight()
+	    {
+		return task_in_flight;
+	    }
+
 	    void update_metric()
 	    {
+		hpus_used += task_in_flight;
+
 		if (hers.size() || task_in_flight > 0) {
 		    active_cycles++;
 		}
-
-		hpus_used += task_in_flight;
 
 		if (active_cycles > 0) {
 		    avg_tput = static_cast<double>(hpus_used) / static_cast<double>(active_cycles);
@@ -270,6 +276,11 @@ namespace PsPIN
             {
                 return state == Idle;
             }
+
+	    bool is_empty()
+	    {
+		return hers.empty();
+	    }
 
             bool is_ready()
             {
@@ -298,7 +309,6 @@ namespace PsPIN
 	    double avg_tput;
 	    uint64_t hpus_used;
 	    uint64_t active_cycles;
-
         };
 
 
@@ -404,11 +414,34 @@ namespace PsPIN
 
         public:
 
-            FMQBVTArbiter(std::vector<FMQ> &fmqs)
-                : FMQArbiter(fmqs), credit(0), curr(0)
+            FMQBVTArbiter(std::vector<FMQ> &fmqs, bool enable_limiter = false)
+                : FMQArbiter(fmqs), credit(0), curr(0), enable_limiter(enable_limiter)
             {
 
             }
+
+	    uint32_t get_weighted_hpu_limit(FMQ &fmq)
+	    {
+		uint32_t weighted_sum = 0;
+		uint32_t n_active = 0;
+
+		assert(fmq.is_ready());
+
+		for (auto &fmq : fmqs) {
+		    if (!fmq.is_empty()) {
+			n_active++;
+			weighted_sum += fmq.get_priority() + 1;
+		    }
+		}
+		assert(n_active);
+		assert(weighted_sum);
+
+		uint32_t limit = static_cast<size_t>(ceil(static_cast<double>(NUM_CLUSTERS * (NUM_CORES + BUFFERED_HERS_PER_CLUSTER)) *
+							  static_cast<double>(fmq.get_priority() + 1) /
+							  static_cast<double>(weighted_sum)));
+		assert(limit);
+		return(limit);
+	    }
 
             FMQ& get_next()
             {
@@ -417,7 +450,13 @@ namespace PsPIN
 		for (auto i = 0; i < fmqs.size(); i++) {
 		    FMQ &cur_fmq = fmqs[i];
 		    if (cur_fmq.is_ready()) {
-			double rank = cur_fmq.get_metric() / static_cast<double>(cur_fmq.get_priority());
+			if (enable_limiter){
+			    if (cur_fmq.get_task_in_flight() >= get_weighted_hpu_limit(cur_fmq)) {
+				continue;
+			    }
+			}
+
+			double rank = cur_fmq.get_metric() / static_cast<double>(cur_fmq.get_priority() + 1);
 			if (rank < min_rank) {
 			    min_rank = rank;
 			    curr = i;
@@ -433,7 +472,7 @@ namespace PsPIN
 
             uint8_t credit;
             uint32_t curr;
-
+	    bool enable_limiter;
         };
 
 
@@ -474,6 +513,9 @@ namespace PsPIN
 		} else if (!strcmp(arbiter_type_env, "BVT")) {
                     printf("[DEBUG]: fmq_arbiter=BVT\n");
                     fmq_arbiter = new FMQBVTArbiter(fmqs);
+		} else if (!strcmp(arbiter_type_env, "WLBVT")) {
+                    printf("[DEBUG]: fmq_arbiter=WLBVT\n");
+                    fmq_arbiter = new FMQBVTArbiter(fmqs, true);
                 } else {
                     assert(0);
                 }
@@ -566,7 +608,7 @@ namespace PsPIN
                 if (become_idle)
                     active_fmqs--;
 
-                Feedback f;
+		Feedback f;
                 f.feedback_her_addr = *sched_port.feedback_her_addr_i;
                 f.feedback_her_size = *sched_port.feedback_her_size_i;
                 f.feedback_msgid = *sched_port.feedback_msgid_i;
@@ -700,7 +742,6 @@ namespace PsPIN
 
         uint32_t num_fmqs;
         uint32_t active_fmqs;
-
     };
 
 }
