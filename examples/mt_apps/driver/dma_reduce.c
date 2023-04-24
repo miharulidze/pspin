@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     dma_conf.handler.th_name = dma_th;
     dma_conf.fmq_matching_rule.ptr = dma_addr;
     dma_conf.fmq_matching_rule.size = strlen(dma_addr) + 1;
-    dma_conf.slo.compute_prio = 1;
+    dma_conf.slo.compute_prio = 0;
 
     dma_ectx_id = gdriver_add_ectx(&dma_conf);
     if (dma_ectx_id == GDRIVER_ERR)
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
     reduce_conf.handler.th_name = reduce_th;
     reduce_conf.fmq_matching_rule.ptr = reduce_addr;
     reduce_conf.fmq_matching_rule.size = strlen(reduce_addr) + 1;
-    reduce_conf.slo.compute_prio = 2;
+    reduce_conf.slo.compute_prio = 0;
 
     reduce_ectx_id = gdriver_add_ectx(&reduce_conf);
     if (reduce_ectx_id == GDRIVER_ERR)

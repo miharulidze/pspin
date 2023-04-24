@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     victim_conf.handler.th_name = th;
     victim_conf.fmq_matching_rule.ptr = victim_addr;
     victim_conf.fmq_matching_rule.size = strlen(victim_addr) + 1;
-    victim_conf.slo.compute_prio = 1;
+    victim_conf.slo.compute_prio = 0;
 
     victim_ectx_id = gdriver_add_ectx(&victim_conf);
     if (victim_ectx_id == GDRIVER_ERR)
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     attacker_conf.handler.th_name = th;
     attacker_conf.fmq_matching_rule.ptr = attacker_addr;
     attacker_conf.fmq_matching_rule.size = strlen(attacker_addr) + 1;
-    attacker_conf.slo.compute_prio = 2;
+    attacker_conf.slo.compute_prio = 0;
 
     attacker_ectx_id = gdriver_add_ectx(&attacker_conf);
     if (attacker_ectx_id == GDRIVER_ERR)
