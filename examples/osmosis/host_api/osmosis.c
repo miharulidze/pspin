@@ -73,6 +73,7 @@ typedef struct gdriver_ectx
 {
     spin_ec_t ectx;
     gdriver_packet_filler_t pkt_filler;
+    gdriver_ectx_conf_t user_conf;
     char matching_rule[GDRIVER_FMQ_MATCHING_RULE_MAXSIZE];
 } gdriver_ectx_t;
 
@@ -90,9 +91,9 @@ typedef struct gdriver_sim_descr
 
 static gdriver_sim_descr_t sim_state;
 
-static void gdriver_dump_ectx_info(const gdriver_ectx_t *gectx)
+static void gdriver_dump_ectx_info(const gdriver_ectx_t *gectx, uint32_t gectx_id)
 {
-    printf("[GDRIVER] gectx=%p info:\n", gectx);
+    printf("[GDRIVER] gectx=%p id=%u info:\n", gectx, gectx_id);
     printf("[GDRIVER] hh_addr=%x; hh_size=%u;\n",
         gectx->ectx.hh_addr, gectx->ectx.hh_size);
     printf("[GDRIVER] ph_addr=%x; ph_size=%u;\n",
@@ -103,6 +104,8 @@ static void gdriver_dump_ectx_info(const gdriver_ectx_t *gectx)
         gectx->ectx.handler_mem_addr, gectx->ectx.handler_mem_size);
     printf("[GDRIVER] host_mem_addr=%lx; host_mem_size=%u\n",
         gectx->ectx.host_mem_addr, gectx->ectx.host_mem_size);
+    printf("[GDRIVER] slo.compute=%u; slo.io=%u\n",
+        gectx->user_conf.slo.compute_prio, gectx->user_conf.slo.io_prio);
     printf("[GDRIVER] matching context=%s\n", gectx->matching_rule ? gectx->matching_rule : "NULL");
 }
 
@@ -149,7 +152,6 @@ static void gdriver_parse_trace()
     while (!feof(trace_file)) {
         ret = fscanf(trace_file, "%s %s %u %u\n", src_addr, dst_addr, &pkt_size, &is_last);
         assert(ret == 4);
-        printf("%s %s %u %u\n", src_addr, dst_addr, pkt_size, is_last);
 
         matched = 0;
         for (ectx_id = 0; ectx_id < sim_state.num_ectxs; ectx_id++) {
@@ -160,6 +162,8 @@ static void gdriver_parse_trace()
         }
 
         assert(matched);
+
+	printf("[GDRIVER]: pkt src=%s dst=%s pkt_size=%u is_last=%u matched_ectx=%u\n", src_addr, dst_addr, pkt_size, is_last, ectx_id);
 
         gdriver_fill_pkt(ectx_id, pkt_buf, pkt_size);
         wait_cycles = (int)(pkt_size * WAIT_CYCLES_PER_BYTE); /* + number of cycles determined by load */
@@ -259,7 +263,8 @@ static int gdriver_init_ectx(gdriver_ectx_t *gectx, uint32_t gectx_id,
 
     pspinsim_set_fmq_prio(gectx_id, ectx_conf->slo.compute_prio);
 
-    gdriver_dump_ectx_info(gectx);
+    memcpy(&gectx->user_conf, ectx_conf, sizeof(gectx->user_conf));
+    gdriver_dump_ectx_info(gectx, gectx_id);
 
     return GDRIVER_OK;
 }
