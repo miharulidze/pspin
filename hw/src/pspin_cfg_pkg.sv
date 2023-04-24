@@ -57,7 +57,7 @@ package automatic pspin_cfg_pkg;
   localparam int unsigned       L1_SCRATCHPAD_SIZE      = L1_CLUSTER_ACTUAL_MEM_SIZE - L1_PKT_BUFF_OFFSET;
 
   //number of HERs that can be buffered (allows to overlap DMA transfer to running handlers)
-  localparam int unsigned       BUFFERED_HERS_PER_CLUSTER = 12;
+  localparam int unsigned       BUFFERED_HERS_PER_CLUSTER = 1;
 
   // the number of HERs in a cluster is the number of buffer ones + the ones running
   localparam int unsigned       NUM_HERS_PER_CLUSTER    = BUFFERED_HERS_PER_CLUSTER + NUM_CORES;
