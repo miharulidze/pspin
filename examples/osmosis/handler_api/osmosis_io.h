@@ -10,24 +10,27 @@ osmosis_dma(void* source, void* dest, size_t size,
 	    int direction, int options, osmosis_dma_t* xfer)
 {
     spin_dma_t xfers[MAX_INFLIGHT_DMAS];
-    size_t i = 1;
+    size_t i, j;
 
     for (; size > DMA_CHUNK_SIZE; size -= DMA_CHUNK_SIZE * MAX_INFLIGHT_DMAS) {
-	for (int j = 0; j < MAX_INFLIGHT_DMAS; j++) {
-	    spin_dma(source, dest, DMA_CHUNK_SIZE, direction, options, &xfers[j]);
+	for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
+	    spin_dma(source, dest, DMA_CHUNK_SIZE, direction, options, &xfers[i]);
 	    source = (char *)source + DMA_CHUNK_SIZE;
 	    dest = (char *)dest + DMA_CHUNK_SIZE;
 	}
-	for (int j = 0; j < MAX_INFLIGHT_DMAS; j++) {
-	    spin_dma_wait(xfers[j]);
+	for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
+	    spin_dma_wait(xfers[i]);
 	}
     }
 
-    for (; size > 0; size -= DMA_CHUNK_SIZE) {
-	spin_dma(source, dest, DMA_CHUNK_SIZE, direction, options, &xfers[0]);
+    for (i = 0; size > 0; size -= DMA_CHUNK_SIZE) {
+	spin_dma(source, dest, DMA_CHUNK_SIZE, direction, options, &xfers[i]);
 	source = (char *)source + DMA_CHUNK_SIZE;
 	dest = (char *)dest + DMA_CHUNK_SIZE;
-	spin_dma_wait(xfers[0]);
+    }
+
+    for (j = 0; j < i + 1; j++) {
+	spin_dma_wait(spin_dma_wait(xfers[j]));
     }
 }
 

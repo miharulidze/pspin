@@ -19,6 +19,7 @@
 #include <handler_profiler.h>
 #endif
 
+#include "../../osmosis/handler_api/osmosis_io.h"
 #include "kernels.h"
 
 /* dma_l2_read */
@@ -40,12 +41,21 @@ __handler__ void dma_l2_read_ph(handler_args_t *args)
     }
 }
 
-void init_handlers(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+__handler__ void osmosis_dma_l2_read_ph(handler_args_t *args)
 {
-    volatile handler_fn handlers[] = {NULL, dma_l2_read_ph, NULL};
-    *hh = handlers[0];
-    *ph = handlers[1];
-    *th = handlers[2];
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    benchmark_params_t params = *(benchmark_params_t *)payload_ptr;
+    char *src_addr = (char *)task->handler_mem;
+    osmosis_dma_t dma;
+
+    //printf("osmosis_dma_l2_read ph\n");
+
+    for (int i = 0; i < params.dma_count; i++) {
+	osmosis_dma((void *)src_addr, (void *)payload_ptr,
+		 params.dma_read_size, 0, 0, &dma);
+	osmosis_dma_wait(dma);
+    }
 }
 
 /* reduce_l1 */
@@ -97,7 +107,24 @@ __handler__ void reduce_l1_th(handler_args_t *args)
     spin_host_write(host_address, (uint64_t) 1, false);
 }
 
-void init_handlers2(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+
+void init_handlers(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, dma_l2_read_ph, NULL};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers2(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, osmosis_dma_l2_read_ph, NULL};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers3(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
 {
     volatile handler_fn handlers[] = {NULL, reduce_l1_ph, reduce_l1_th};
     *hh = handlers[0];
