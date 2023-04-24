@@ -292,7 +292,28 @@ module cluster_scheduler #(
             $fatal(1, "We received a packet that cannot store!");
 
     end
-    // pragma translate_on
+    `else // !`ifndef VERILATOR
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (task_valid_i && task_ready_o) begin
+            if (dma_xfer_valid_o && dma_xfer_ready_i) begin
+                $display("[%0d][cluster_scheduler.sv] started DMA read cluster=%0d msg_id=%0d task_addr=%08x", $time, cluster_id_i, task_descr_i.msgid, dma_xfer.src_addr);
+            end
+        end
+
+       if (dma_req_pop_nz) begin
+          $display("[%0d][cluster_scheduler.sv] completed task/packet DMA cluster=%0d msg_id=%0d her_addr=%08x", $time, cluster_id_i, ready_task.handler_task.msgid, ready_task.handler_task.pkt_addr);
+       end
+
+       if (hpu_task_ready_i[free_hpu_idx] && (dma_req_pop & (i == free_hpu_idx))) begin
+          $display("[%0d][cluster_scheduler.sv] sent task for execution cluster=%0d hpu=%0d msg_id=%0d her_addr=%08x", $time, cluster_id_i, free_hpu_idx, hpu_task_o.handler_task.msgid, hpu_task_o.handler_task.pkt_addr);
+       end
+
+       if (feedback_valid_o && feedback_ready_i) begin
+          $display("[%0d][cluster_scheduler.sv] sent task completion feedback cluster=%0d msg_id=%0d her_addr=%08x", $time, cluster_id_i, feedback_o.msgid, feedback_o.pkt_addr);
+
+       end
+    end
     `endif
+    // pragma translate_on
 
 endmodule

@@ -238,7 +238,17 @@ module scheduler #(
                 $display("%0d INFO FEEDBACK %0d %0d", $stime, pktgen_feedback_o.msgid, ($stime - start_time));
             end
         end
-    end
+    end // initial begin
+    `else
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (task_valid_i && task_ready_o) begin
+            $display("[%0d][scheduler.sv] received new task msg_id=%0d her_addr=%08x", $stime, task_descr_i.msgid, task_descr_i.pkt_addr);
+        end
+
+        if (pktgen_feedback_valid_o && pktgen_feedback_ready_i) begin
+            $display("[%0d][scheduler.sv] received task completion feedback msg_id=%0d her_addr=%08x", $stime, pktgen_feedback_o.msgid, pktgen_feedback_o.pkt_addr);
+        end
+     end
     `endif
     // pragma translate_on
 

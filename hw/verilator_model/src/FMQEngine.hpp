@@ -182,7 +182,6 @@ namespace PsPIN
                     state = Idle;
                 }
 
-                //printf("FMQ feedback; state: %u\n", state);
                 return state == Idle;
             }
 
@@ -232,7 +231,6 @@ namespace PsPIN
                 t.scratchpad_addr[3] = h.her_meta_scratchpad_3_addr;
                 t.scratchpad_size[3] = h.her_meta_scratchpad_3_size;
 
-                // printf("FMQ state=%u; trigger_feedback=%u\n", state, pop_her);
                 if (pop_her)
                     hers.pop();
 
@@ -561,7 +559,6 @@ namespace PsPIN
         void check_new_tasks_posedge()
         {
             if (ni_port.her_ready_o && ni_port.her_valid_i) {
-                //SIM_PRINT("Received HER from NIC\n");
                 HER new_her;
                 new_her.her_msgid                   = ni_port.her_msgid_i;
                 new_her.her_is_eom                  = ni_port.her_is_eom_i;
@@ -601,7 +598,6 @@ namespace PsPIN
                 return;
 
             if (*sched_port.feedback_valid_i) {
-                SIM_PRINT("Received feedback from scheduler\n");
                 *sched_port.feedback_ready_o = 1;
 
                 bool become_idle = get_fmq(*sched_port.feedback_msgid_i).handle_feedback();
@@ -637,8 +633,6 @@ namespace PsPIN
             ni_port.feedback_her_size_o = f.feedback_her_size;
             ni_port.feedback_msgid_o = f.feedback_msgid;
             ni_port.feedback_valid_o = 1;
-
-            SIM_PRINT("Sending feedback to NIC\n");
 
             feedback_buffer.pop();
         }
@@ -689,7 +683,7 @@ namespace PsPIN
             *sched_port.task_o.trigger_feedback = task.trigger_feedback;
             *sched_port.task_valid_o = 1;
 
-            SIM_PRINT("Sending task to scheduler\n");
+	    SIM_PRINT("sent task to scheduler msg_id=%0d her_addr=%08x\n", task.msgid, task.pkt_addr);
         }
 
         void produce_output_negedge()
@@ -703,7 +697,7 @@ namespace PsPIN
         void check_termination_posedge()
         {
             if (ni_port.eos_i && active_fmqs == 0) {
-                printf("Simulation termination detected!\n");
+                SIM_PRINT("Simulation termination detected!\n");
                 *sim_finish_port_o = 1;
             }
         }

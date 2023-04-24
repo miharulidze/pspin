@@ -555,23 +555,23 @@ module task_frontend #(
             end
         end
     end
-    `else
+    `else // !`ifndef VERILATOR
         always_ff @(posedge clk_i, negedge rst_ni) begin
             if (hpu_task_valid_i && hpu_task_ready_o) begin
-                $display("[%0d][synt]: INFO HANDLER_START %0d %0d", $stime, cluster_id_i, C_CORE_ID);
+                $display("[%0d][hpu_driver.sv]: started task execution cluster=%0d hpu=%0d msg_id=%0d her_addr=%08x", $stime, cluster_id_i, C_CORE_ID, hpu_task_i.handler_task.msgid, hpu_task_i.handler_task.pkt_addr);
             end
 
-            if (state_q != Init && state_q != Idle && state_d == Idle) begin
-                $display("[%0d][synt]: INFO HPU_TIME %0d %0d", $stime, cluster_id_i, C_CORE_ID);                  
-            end
+            //if (state_q != Init && state_q != Idle && state_d == Idle) begin
+            //    $display("[%0d][hpu_driver.sv]: INFO HPU_TIME %0d %0d", $stime, cluster_id_i, C_CORE_ID);
+            //end
 
             if (state_q == Running && trigger_feedback) begin
-                $display("[%0d][synt]: INFO HANDLER_TIME %0d %0d %0d %08x %08x %0d", $stime, cluster_id_i, C_CORE_ID, current_task_q.handler_task.msgid, current_task_q.handler_task.handler_fun, current_task_q.handler_task.pkt_addr, current_task_q.handler_task.pkt_size);
+                $display("[%0d][hpu_driver.sv]: finished task execution cluster=%0d hpu=%0d msg_id=%0d her_addr=%08x", $stime, cluster_id_i, C_CORE_ID, current_task_q.handler_task.msgid, current_task_q.handler_task.pkt_addr);
                 //$display("MSG: %0d; scratchpad id: %0d; scratchpad base addr: %0d; scratchpad size: %0d", current_task_q.handler_task.msgid, scratchpad_id, l1_scratchpad_base_addr, L1_SCRATCHPAD_SIZE);
             end
 
             if (handler_error) begin
-                $display("[%0d][synt]: HPU (%0d %0d) HANDLER ERROR: %0d", $stime, cluster_id_i, C_CORE_ID, handler_error_code);
+                $display("[%0d][hpu_driver.sv]: HPU (%0d %0d) HANDLER ERROR: %0d", $stime, cluster_id_i, C_CORE_ID, handler_error_code);
             end
         end
     `endif

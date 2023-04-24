@@ -431,7 +431,7 @@ namespace PsPIN
 
             ready_hers.pop();
 
-            SIM_PRINT("HER sent (0x%x)\n", *ni_ctrl.her_o.her_addr);
+	    SIM_PRINT("sent new task to FMQ msg_id=%u her_addr=%x)\n", her.msgid, *ni_ctrl.her_o.her_addr);
 
             pktentry_t pktentry;
             pktentry.pspin_arrival_time = sim_time();
@@ -471,7 +471,7 @@ namespace PsPIN
                 pktentry_t pktentry = pktmap[*ni_ctrl.feedback_her_addr_i];
                 uint64_t latency = (uint64_t)(sim_time() - pktentry.nic_arrival_time);
 
-                SIM_PRINT("INFO FEEDBACK 0x%x %lu %u %u\n", *ni_ctrl.feedback_her_addr_i, latency, pktentry.size, pktentry.msgid);
+                SIM_PRINT("received task completion feedback loopback_latency=%lu msg_id=%u her_addr=%x\n", latency, pktentry.msgid, *ni_ctrl.feedback_her_addr_i);
 
                 assert(*ni_ctrl.feedback_her_size_i == pktentry.size);
                 free_pkt_space(*ni_ctrl.feedback_her_addr_i, *ni_ctrl.feedback_her_size_i);
