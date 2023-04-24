@@ -19,13 +19,7 @@
 #include "osmosis.h"
 
 #include "../handlers/kernels.h"
-
-int match_ectx_cb(void *src, void *dst, void *ectx_addr)
-{
-    if (!strcmp((char *)dst, (char*)ectx_addr))
-        return 1;
-    return 0;
-}
+#include "../utils/utils.h"
 
 int fill_benchmark_params(void *pkt, void *params) {
     benchmark_params_t *dst = (benchmark_params_t *)((char *)pkt + sizeof(pkt_hdr_t));
