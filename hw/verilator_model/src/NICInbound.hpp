@@ -431,7 +431,7 @@ namespace PsPIN
 
             ready_hers.pop();
 
-	    SIM_PRINT("sent new task to FMQ msg_id=%u her_addr=%x)\n", her.msgid, *ni_ctrl.her_o.her_addr);
+	    SIM_PRINT("sent new task to FMQ msg_id=%u her_addr=%x\n", her.msgid, *ni_ctrl.her_o.her_addr);
 
             pktentry_t pktentry;
             pktentry.pspin_arrival_time = sim_time();
