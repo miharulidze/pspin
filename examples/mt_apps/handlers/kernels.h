@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-typedef struct benchmark_params
+typedef struct io_params
 {
-    uint32_t dma_read_size;
-    int dma_count;
-} benchmark_params_t;
+    uint32_t io_req_len;
+    int io_reqs_count;
+    uint32_t io_chunk_size;
+} io_params_t;

@@ -22,9 +22,9 @@
 #include "../utils/utils.h"
 
 int fill_benchmark_params(void *pkt, void *params) {
-    benchmark_params_t *dst = (benchmark_params_t *)((char *)pkt + sizeof(pkt_hdr_t));
-    benchmark_params_t *src = (benchmark_params_t *)params;
-    memcpy((void *)dst, params, sizeof(benchmark_params_t));
+    io_params_t *dst = (io_params_t *)((char *)pkt + sizeof(pkt_hdr_t));
+    io_params_t *src = (io_params_t *)params;
+    memcpy((void *)dst, params, sizeof(io_params_t));
 }
 
 int main(int argc, char **argv)
@@ -41,9 +41,9 @@ int main(int argc, char **argv)
 
     /* dma --> (ectx #0) --> 192.168.0.0 */
     char dma_addr[GDRIVER_FMQ_MATCHING_RULE_MAXSIZE] = "192.168.0.0";
-    benchmark_params_t dma_params;
-    dma_params.dma_count = 1;
-    dma_params.dma_read_size = 64; // dma generates 1 64B read per each packet
+    io_params_t dma_params;
+    dma_params.io_reqs_count = 1;
+    dma_params.io_req_len = 64; // dma generates 1 64B read per each packet
 
     gdriver_ectx_conf_t dma_conf;
     memset((void *)&dma_conf, 0, sizeof(gdriver_ectx_conf_t));
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     memset((void *)&dma_pkt_filler, 0, sizeof(gdriver_packet_filler_t));
     dma_pkt_filler.cb = fill_benchmark_params;
     dma_pkt_filler.data = &dma_params;
-    dma_pkt_filler.size = sizeof(benchmark_params_t);
+    dma_pkt_filler.size = sizeof(io_params_t);
     gdriver_add_pkt_filler(dma_ectx_id, &dma_pkt_filler);
 
     /* reduce --> (ectx #2) --> 192.168.0.1 */
@@ -72,9 +72,9 @@ int main(int argc, char **argv)
     const char *reduce_ph = "reduce_l1_ph";
     const char *reduce_th = NULL;
     char reduce_addr[GDRIVER_FMQ_MATCHING_RULE_MAXSIZE] = "192.168.0.1";
-    //benchmark_params_t reduce_params;
-    //reduce_params.dma_count = 8;
-    //reduce_params.dma_read_size = 1024; // reduce generates 1 1024B read per each packet
+    //io_params_t reduce_params;
+    //reduce_params.io_reqs_count = 8;
+    //reduce_params.io_req_len = 1024; // reduce generates 1 1024B read per each packet
 
     gdriver_ectx_conf_t reduce_conf;
     memset((void *)&reduce_conf, 0, sizeof(gdriver_ectx_conf_t));
@@ -94,7 +94,7 @@ int main(int argc, char **argv)
     //memset((void *)&reduce_pkt_filler, 0, sizeof(gdriver_packet_filler_t));
     //reduce_pkt_filler.cb = fill_benchmark_params;
     //reduce_pkt_filler.data = &reduce_params;
-    //reduce_pkt_filler.size = sizeof(benchmark_params_t);
+    //reduce_pkt_filler.size = sizeof(io_params_t);
     //gdriver_add_pkt_filler(reduce_ectx_id, &reduce_pkt_filler);
 
     if (gdriver_run() != GDRIVER_OK)

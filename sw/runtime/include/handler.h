@@ -1,11 +1,11 @@
 // Copyright 2020 ETH Zurich
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,7 +38,7 @@
 
 typedef futex_t spin_lock_t;
 
-typedef struct task 
+typedef struct task
 {
     //handler memory (L2)
     void* handler_mem;
@@ -47,7 +47,7 @@ typedef struct task
     //packet memory (L1)
     void* pkt_mem;
     size_t pkt_mem_size;
-    
+
     //per-message scratchpad (L1)
     void* scratchpad[NB_CLUSTERS];
     size_t scratchpad_size[NB_CLUSTERS];
@@ -66,9 +66,9 @@ typedef struct task
     //flow id
     uint32_t flow_id;
 
-}__attribute__((__packed__)) task_t; 
+}__attribute__((__packed__)) task_t;
 
-typedef struct handler_args 
+typedef struct handler_args
 {
     task_t *task;
     uint32_t hpu_gid;
@@ -94,7 +94,7 @@ static inline int spin_dma(void* source, void* dest, size_t size, int direction,
         return SPIN_OK;
     } else
     {
-        return SPIN_FAIL;  
+        return SPIN_FAIL;
     }
 }
 
@@ -170,7 +170,7 @@ static inline int spin_rw_lock_w_unlock(spin_rw_lock_t *rwlock)
 
 
 typedef uint32_t spin_cmd_t;
-static inline int spin_cmd_wait(spin_cmd_t handle) 
+static inline int spin_cmd_wait(spin_cmd_t handle)
 {
     MMIO_WRITE(CMD_WAIT, handle);
     return SPIN_OK;
@@ -181,7 +181,7 @@ static inline int spin_cmd_test(spin_cmd_t handle, bool *completed)
     MMIO_WRITE(CMD_TEST, handle);
     *completed = MMIO_READ(CMD_TEST) == 1;
     return SPIN_OK;
-} 
+}
 
 static inline int spin_rdma_put(uint32_t dest, void *data, uint32_t length, spin_cmd_t *handle)
 {
@@ -198,8 +198,8 @@ static inline int spin_rdma_put(uint32_t dest, void *data, uint32_t length, spin
                    sw      %6, 160(%1);  \
                    sw      %7, 140(%1);  \
                    lw      %0, 128(%1);  \
-    " : "=r"(res) : "r"(base_addr), "r"(dest), "r"(fid), "r"(src_addr_high), "r"((uint32_t)data), "r"(length), "r"(cmd_info));       
-    
+    " : "=r"(res) : "r"(base_addr), "r"(dest), "r"(fid), "r"(src_addr_high), "r"((uint32_t)data), "r"(length), "r"(cmd_info));
+
     *handle = res;
     return SPIN_OK;
 }
@@ -220,8 +220,8 @@ static inline int spin_send_packet(void *data, uint32_t length, spin_cmd_t *hand
                    sw      %6, 160(%1);  \
                    sw      %7, 140(%1);  \
                    lw      %0, 128(%1);  \
-    " : "=r"(res) : "r"(base_addr), "r"(dest), "r"(fid), "r"(src_addr_high), "r"((uint32_t)data), "r"(length), "r"(cmd_info));       
-    
+    " : "=r"(res) : "r"(base_addr), "r"(dest), "r"(fid), "r"(src_addr_high), "r"((uint32_t)data), "r"(length), "r"(cmd_info));
+
     *handle = res;
     return SPIN_OK;
 }
@@ -243,8 +243,8 @@ static inline int spin_dma_to_host(uint64_t host_addr, uint32_t nic_addr, uint32
                    sw      %6, 160(%1);  \
                    sw      %7, 140(%1);  \
                    lw      %0, 128(%1);  \
-    " : "=r"(res) : "r"(base_addr), "r"(host_address_high), "r"(host_address_low), "r"(nic_addr), "r"(length), "r"(direction), "r"(cmd_info));       
-    
+    " : "=r"(res) : "r"(base_addr), "r"(host_address_high), "r"(host_address_low), "r"(nic_addr), "r"(length), "r"(direction), "r"(cmd_info));
+
     *xfer = res;
     return SPIN_OK;
 }
@@ -266,16 +266,16 @@ static inline int spin_dma_from_host(uint64_t host_addr, uint32_t nic_addr, uint
                    sw      %6, 160(%1);  \
                    sw      %7, 140(%1);  \
                    lw      %0, 128(%1);  \
-    " : "=r"(res) : "r"(base_addr), "r"(host_address_high), "r"(host_address_low), "r"(nic_addr), "r"(length), "r"(direction), "r"(cmd_info));       
-    
+    " : "=r"(res) : "r"(base_addr), "r"(host_address_high), "r"(host_address_low), "r"(nic_addr), "r"(length), "r"(direction), "r"(cmd_info));
+
     *xfer = res;
     return SPIN_OK;
 }
 
-// spin_host_write is deprecated. Use spin_write_to_host instead! 
+// spin_host_write is deprecated. Use spin_write_to_host instead!
 #define spin_host_write spin_write_to_host
 
-static inline int spin_write_to_host(uint64_t host_addr, uint64_t user_data, spin_cmd_t *xfer) 
+static inline int spin_write_to_host(uint64_t host_addr, uint64_t user_data, spin_cmd_t *xfer)
 {
     uint32_t host_address_high = (uint32_t) (host_addr >> 32);
     uint32_t host_address_low = (uint32_t) host_addr;
@@ -295,7 +295,7 @@ static inline int spin_write_to_host(uint64_t host_addr, uint64_t user_data, spi
                    sw      %5, 160(%1);  \
                    sw      %7, 140(%1);  \
                    lw      %0, 128(%1);  \
-    " : "=r"(res) : "r"(base_addr), "r"(host_address_high), "r"(host_address_low), "r"(size_and_direction), "r"(data_high), "r"(data_low), "r"(cmd_info));       
+    " : "=r"(res) : "r"(base_addr), "r"(host_address_high), "r"(host_address_low), "r"(size_and_direction), "r"(data_high), "r"(data_low), "r"(cmd_info));
 
     *xfer = res;
     return SPIN_OK;
@@ -306,3 +306,9 @@ static inline int spin_write_to_host(uint64_t host_addr, uint64_t user_data, spi
 void init_handlers(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
 void init_handlers2(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
 void init_handlers3(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers4(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers5(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers6(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers7(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers8(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers9(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);

@@ -22,22 +22,21 @@
 #include "../../osmosis/handler_api/osmosis_io.h"
 #include "kernels.h"
 
-/* dma_l2_read */
-
 __handler__ void dma_l2_read_ph(handler_args_t *args)
 {
     task_t *task = args->task;
     char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
-    benchmark_params_t params = *(benchmark_params_t *)payload_ptr;
+    io_params_t params = *(io_params_t *)payload_ptr;
     char *src_addr = (char *)task->handler_mem;
     spin_dma_t dma;
 
-    //printf("dma_l2_read ph\n");
+    //printf("dma_l2_read ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
 
-    for (int i = 0; i < params.dma_count; i++) {
-	spin_dma((void *)src_addr, (void *)payload_ptr,
-		 params.dma_read_size, 0, 0, &dma);
-	spin_dma_wait(dma);
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        spin_dma((void *)src_addr, (void *)payload_ptr,
+                 params.io_req_len, 0, 0, &dma);
+        spin_dma_wait(dma);
     }
 }
 
@@ -45,16 +44,153 @@ __handler__ void osmosis_dma_l2_read_ph(handler_args_t *args)
 {
     task_t *task = args->task;
     char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
-    benchmark_params_t params = *(benchmark_params_t *)payload_ptr;
+    io_params_t params = *(io_params_t *)payload_ptr;
     char *src_addr = (char *)task->handler_mem;
     osmosis_dma_t dma;
 
-    //printf("osmosis_dma_l2_read ph\n");
+    //printf("osmosis_dma_l2_read ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
 
-    for (int i = 0; i < params.dma_count; i++) {
-	osmosis_dma((void *)src_addr, (void *)payload_ptr,
-		 params.dma_read_size, 0, 0, &dma);
-	osmosis_dma_wait(dma);
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        osmosis_dma((void *)src_addr, (void *)payload_ptr,
+                    params.io_req_len, 0, 0, &dma,
+                    params.io_chunk_size);
+        osmosis_dma_wait(dma);
+    }
+}
+
+__handler__ void dma_to_host_ph(handler_args_t *args)
+{
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    io_params_t params = *(io_params_t *)payload_ptr;
+    spin_cmd_t cmd;
+
+    //printf("dma_to_host ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
+
+    uint64_t host_address = task->host_mem_high;
+    host_address = (host_address << 32) | (task->host_mem_low);
+
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        spin_dma_to_host(host_address, (uint32_t) payload_ptr,
+                         params.io_req_len, 1, &cmd);
+        spin_cmd_wait(cmd);
+    }
+}
+
+__handler__ void osmosis_dma_to_host_ph(handler_args_t *args)
+{
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    io_params_t params = *(io_params_t *)payload_ptr;
+    osmosis_cmd_t cmd;
+
+    //printf("osmosis_dma_to_host ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
+
+    uint64_t host_address = task->host_mem_high;
+    host_address = (host_address << 32) | (task->host_mem_low);
+
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        osmosis_dma_to_host(host_address, (uint32_t) payload_ptr,
+                            params.io_req_len, 1, &cmd,
+                            params.io_chunk_size);
+        osmosis_cmd_wait(cmd);
+    }
+}
+
+__handler__ void dma_from_host_ph(handler_args_t *args)
+{
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    io_params_t params = *(io_params_t *)payload_ptr;
+    spin_cmd_t cmd;
+
+    //printf("dma_from_host ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
+
+    uint64_t host_address = task->host_mem_high;
+    host_address = (host_address << 32) | (task->host_mem_low);
+
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        spin_dma_from_host(host_address, (uint32_t) payload_ptr,
+                           params.io_req_len, 1, &cmd);
+        spin_cmd_wait(cmd);
+    }
+}
+
+__handler__ void osmosis_dma_from_host_ph(handler_args_t *args)
+{
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    io_params_t params = *(io_params_t *)payload_ptr;
+    osmosis_cmd_t cmd;
+
+    //printf("osmosis_dma_from_host ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
+
+    uint64_t host_address = task->host_mem_high;
+    host_address = (host_address << 32) | (task->host_mem_low);
+
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        osmosis_dma_from_host(host_address, (uint32_t) payload_ptr,
+                              params.io_req_len, 1, &cmd,
+                              params.io_chunk_size);
+        osmosis_cmd_wait(cmd);
+    }
+}
+
+__handler__ void send_packet_ph(handler_args_t *args)
+{
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    io_params_t params = *(io_params_t *)payload_ptr;
+    ip_hdr_t *ip_hdr_ptr = (ip_hdr_t *)task->pkt_mem;
+    udp_hdr_t *udp_hdr_ptr = (udp_hdr_t *)((char *)task->pkt_mem + sizeof(ip_hdr_t));
+    spin_cmd_t cmd;
+
+    //printf("send_packet ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
+
+    uint32_t src_id = ip_hdr_ptr->source_id;
+    ip_hdr_ptr->source_id = ip_hdr_ptr->dest_id;
+    ip_hdr_ptr->dest_id = src_id;
+
+    uint16_t src_port = udp_hdr_ptr->src_port;
+    udp_hdr_ptr->src_port = udp_hdr_ptr->dst_port;
+    udp_hdr_ptr->dst_port = src_port;
+
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        spin_send_packet(payload_ptr, params.io_req_len, &cmd);
+        spin_cmd_wait(cmd);
+    }
+}
+
+__handler__ void osmosis_send_packet_ph(handler_args_t *args)
+{
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    io_params_t params = *(io_params_t *)payload_ptr;
+    ip_hdr_t *ip_hdr_ptr = (ip_hdr_t *)task->pkt_mem;
+    udp_hdr_t *udp_hdr_ptr = (udp_hdr_t *)((char *)task->pkt_mem + sizeof(ip_hdr_t));
+    spin_cmd_t cmd;
+
+    //printf("osmosis_send_packet ph io_req_len=%u io_reqs_count=%d\n",
+    //       params.io_req_len, params.io_reqs_count);
+
+    uint32_t src_id = ip_hdr_ptr->source_id;
+    ip_hdr_ptr->source_id = ip_hdr_ptr->dest_id;
+    ip_hdr_ptr->dest_id = src_id;
+
+    uint16_t src_port = udp_hdr_ptr->src_port;
+    udp_hdr_ptr->src_port = udp_hdr_ptr->dst_port;
+    udp_hdr_ptr->dst_port = src_port;
+
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        osmosis_send_packet(payload_ptr, params.io_req_len, &cmd,
+                            params.io_chunk_size);
+        osmosis_cmd_wait(cmd);
     }
 }
 
@@ -76,7 +212,7 @@ __handler__ void reduce_l1_ph(handler_args_t *args)
 {
 
     task_t* task = args->task;
-    
+
     uint8_t *pkt_pld_ptr;
     uint32_t pkt_pld_len;
     GET_IP_UDP_PLD(task->pkt_mem, pkt_pld_ptr, pkt_pld_len);
@@ -92,8 +228,8 @@ __handler__ void reduce_l1_ph(handler_args_t *args)
     for (uint32_t i = 0; i < pkt_pld_len / 4; i++)
     {
         amo_add(&(local_mem[i]), nic_pld_addr[i]);
-	// We do need atomics here, as each handler writes to the
-	// same adress as others in the same cluster.
+        // We do need atomics here, as each handler writes to the
+        // same adress as others in the same cluster.
     }
 }
 
@@ -124,9 +260,57 @@ void init_handlers2(handler_fn * hh, handler_fn *ph, handler_fn *th, void **hand
     *th = handlers[2];
 }
 
-void init_handlers3(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+void init_handlers3(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, dma_to_host_ph, NULL};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers4(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, osmosis_dma_to_host_ph, NULL};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers5(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, dma_from_host_ph, NULL};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers6(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, osmosis_dma_from_host_ph, NULL};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers7(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
 {
     volatile handler_fn handlers[] = {NULL, reduce_l1_ph, reduce_l1_th};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers8(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, send_packet_ph, NULL};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers9(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, osmosis_send_packet_ph, reduce_l1_th};
     *hh = handlers[0];
     *ph = handlers[1];
     *th = handlers[2];
