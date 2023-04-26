@@ -243,6 +243,22 @@ __handler__ void reduce_l1_th(handler_args_t *args)
     spin_host_write(host_address, (uint64_t) 1, false);
 }
 
+__handler__ void spinner_ph(handler_args_t *args)
+{
+    task_t *task = args->task;
+    char *payload_ptr = (char *)task->pkt_mem + sizeof(pkt_hdr_t);
+    io_params_t params = *(io_params_t *)payload_ptr;
+    volatile int xx = 0;
+    int x = xx;
+
+    //printf("spinner ph %d\n", params.io_reqs_count);
+
+    for (int i = 0; i < params.io_reqs_count; i++) {
+        x = x*i;
+    }
+
+    xx = x;
+}
 
 void init_handlers(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
 {
@@ -311,6 +327,14 @@ void init_handlers8(handler_fn * hh, handler_fn *ph, handler_fn *th, void **hand
 void init_handlers9(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
 {
     volatile handler_fn handlers[] = {NULL, osmosis_send_packet_ph, reduce_l1_th};
+    *hh = handlers[0];
+    *ph = handlers[1];
+    *th = handlers[2];
+}
+
+void init_handlers10(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
+{
+    volatile handler_fn handlers[] = {NULL, spinner_ph, reduce_l1_th};
     *hh = handlers[0];
     *ph = handlers[1];
     *th = handlers[2];

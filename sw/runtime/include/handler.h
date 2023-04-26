@@ -312,3 +312,4 @@ void init_handlers6(handler_fn * hh, handler_fn *ph, handler_fn *th, void **hand
 void init_handlers7(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
 void init_handlers8(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
 void init_handlers9(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers10(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
