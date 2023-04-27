@@ -2,22 +2,25 @@ import re
 import sys
 import csv
 
+logsdir = sys.argv[1]
+
 def extract_timestamp(raw_data):
     chunks = raw_data.strip().split("][")
     return chunks[0][1:]
 
 # experiment name format:
 # <ntenants>.blahblahblah
-def parse_hpu_occup(expname):
-    n_tenants = int(expname.split(".")[0])
+def parse_hpu_occup(logsdir, trace, n_tenants, cycles, prios, arbiter, csvfile):
     counter = 0
+
     timestamps = {}
 
     for tenant_id in range(n_tenants):
         timestamps[str(tenant_id)] = []
         count = 0
 
-        with open(f"{expname}.log", 'r', errors='replace') as log:
+        #hpu_contention.v256.a512.BVT.t2mix
+        with open(f"{logsdir}/hpu_contention.v{cycles[0]}.a{cycles[1]}.{arbiter}.{trace}.log", 'r', errors='replace') as log:
             assert count == 0
             while line := log.readline():
                 if re.search("hpu_driver.sv", line) and len(line.strip().split(" ")) > 5:
@@ -34,13 +37,24 @@ def parse_hpu_occup(expname):
                     elif (chunks[1] == 'finished'):
                         count -= 1
 
-                    timestamps[msg_id].append([tenant_id, int(int(time)/1000), count])
+                    record = [trace, arbiter, tenant_id, prios[tenant_id], cycles[tenant_id], int(int(time)/1000), count]
+                    timestamps[msg_id].append(record)
 
-        with open(f"{expname}.hpu_occupation.csv", "w", newline="") as f:
-            f.write("tenant_id,time,hpu_occup\n")
         for msg_id, records in timestamps.items():
-            with open(f"{expname}.hpu_occupation.csv", "a", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerows(records)
+            writer = csv.writer(csvfile)
+            writer.writerows(records)
 
-parse_hpu_occup(sys.argv[1])
+n_tenants = 2;
+cycles = {}
+cycles[0] = 256
+cycles[1] = 512
+prios = {}
+prios[0] = 0
+prios[1] = 0
+
+with open(f"{logsdir}/hpu_occupation.csv", "w") as outcsv:
+    outcsv.write("trace,arbiter,tenant_id,tenant_prio,tenant_cycles,time,hpu_occup")
+    with open(f"{logsdir}/hpu_occupation.csv", "a") as outcsv:
+        for trace in ["t2mix100.128b","t2mix300.128b","t2mix100","t2mix300"]:
+            for arbiter in ["RR","BVT"]:
+                parse_hpu_occup(logsdir, trace, n_tenants, cycles, prios, arbiter, outcsv)
