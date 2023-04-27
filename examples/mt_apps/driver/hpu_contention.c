@@ -27,23 +27,29 @@ const char *hh = NULL;
 const char *ph = "spinner_ph";
 const char *th = NULL;
 
-int bmark_parse_arguments(int argc, char **argv, int *victim_loop_iters, int *attacker_loop_iters)
+int bmark_parse_arguments(int argc, char **argv,
+                          int *victim_loop_iters,
+                          uint8_t *victim_prio,
+                          int *attacker_loop_iters,
+                          uint8_t *attacker_prio)
 {
-    if (argc != 5) {
+    if (argc != 7) {
         printf("bad arguments: "
-               "./sim_hpu_contention -t <trace_name> <victim_loop_iters> <attacker_loop_iters>\n");
+               "./sim_hpu_contention -t <trace_name> <victim_loop_iters> <victim_prio> <attacker_loop_iters> <attacker_prio>\n");
         assert(0);
     }
 
     *victim_loop_iters = atoi(argv[3]);
-    *attacker_loop_iters = atoi(argv[4]);
+    *victim_prio = atoi(argv[4]);
+    *attacker_loop_iters = atoi(argv[5]);
+    *attacker_prio = atoi(argv[6]);
 
     printf("Kernel=%s "
-           "Victim loop_iters=%d "
-           "Attacker loop_iters=%d\n",
+           "Victim loop_iters=%d prio=%d "
+           "Attacker loop_iters=%d prio=%d\n",
            ph,
-           *victim_loop_iters,
-	   *attacker_loop_iters);
+           *victim_loop_iters, *victim_prio,
+           *attacker_loop_iters, *attacker_prio);
 
     return GDRIVER_OK;
 }
@@ -61,8 +67,11 @@ int main(int argc, char **argv)
     int victim_ectx_id, attacker_ectx_id;
     int victim_loop_iters;
     int attacker_loop_iters;
+    uint8_t victim_prio, attacker_prio;
 
-    assert(bmark_parse_arguments(argc, argv, &victim_loop_iters, &attacker_loop_iters) == GDRIVER_OK);
+    assert(bmark_parse_arguments(argc, argv,
+                                 &victim_loop_iters, &victim_prio,
+                                 &attacker_loop_iters, &attacker_prio) == GDRIVER_OK);
     assert(gdriver_init(argc, argv, match_ectx_cb, &ectx_num) == GDRIVER_OK);
 
     /* victim --> (ectx #0) --> 192.168.0.0 */
@@ -80,7 +89,7 @@ int main(int argc, char **argv)
     char victim_addr[GDRIVER_FMQ_MATCHING_RULE_MAXSIZE] = "192.168.0.0";
     victim_conf.fmq_matching_rule.ptr = victim_addr;
     victim_conf.fmq_matching_rule.size = strlen(victim_addr) + 1;
-    victim_conf.slo.compute_prio = 0;
+    victim_conf.slo.compute_prio = victim_prio;
 
     victim_ectx_id = gdriver_add_ectx(&victim_conf);
     if (victim_ectx_id == GDRIVER_ERR)
@@ -108,7 +117,7 @@ int main(int argc, char **argv)
     char attacker_addr[GDRIVER_FMQ_MATCHING_RULE_MAXSIZE] = "192.168.0.1";
     attacker_conf.fmq_matching_rule.ptr = attacker_addr;
     attacker_conf.fmq_matching_rule.size = strlen(attacker_addr) + 1;
-    attacker_conf.slo.compute_prio = 0;
+    attacker_conf.slo.compute_prio = attacker_prio;
 
     attacker_ectx_id = gdriver_add_ectx(&attacker_conf);
     if (attacker_ectx_id == GDRIVER_ERR)
