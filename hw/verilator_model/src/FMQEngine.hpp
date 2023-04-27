@@ -133,7 +133,7 @@ namespace PsPIN
         public:
 
             FMQ(): state(Idle), eom_seen(false), priority(0), task_in_flight(0),
-		   avg_tput(0.0), hpus_used(0), active_cycles(0)
+           avg_tput(0.0), hpus_used(0), active_cycles(0)
             {
 
             }
@@ -247,38 +247,38 @@ namespace PsPIN
                 return priority;
             }
 
-	    uint32_t get_task_in_flight()
-	    {
-		return task_in_flight;
-	    }
+        uint32_t get_task_in_flight()
+        {
+        return task_in_flight;
+        }
 
-	    void update_metric()
-	    {
-		hpus_used += task_in_flight;
+        void update_metric()
+        {
+        hpus_used += task_in_flight;
 
-		if (hers.size() || task_in_flight > 0) {
-		    active_cycles++;
-		}
+        if (hers.size() || task_in_flight > 0) {
+            active_cycles++;
+        }
 
-		if (active_cycles > 0) {
-		    avg_tput = static_cast<double>(hpus_used) / static_cast<double>(active_cycles);
-		}
-	    }
+        if (active_cycles > 0) {
+            avg_tput = static_cast<double>(hpus_used) / static_cast<double>(active_cycles);
+        }
+        }
 
-	    double get_metric()
-	    {
-		return avg_tput;
-	    }
+        double get_metric()
+        {
+        return avg_tput;
+        }
 
             bool is_idle()
             {
                 return state == Idle;
             }
 
-	    bool is_empty()
-	    {
-		return hers.empty();
-	    }
+        bool is_empty()
+        {
+        return hers.empty();
+        }
 
             bool is_ready()
             {
@@ -304,9 +304,9 @@ namespace PsPIN
             bool has_th;
             uint8_t priority;
             uint32_t task_in_flight;
-	    double avg_tput;
-	    uint64_t hpus_used;
-	    uint64_t active_cycles;
+        double avg_tput;
+        uint64_t hpus_used;
+        uint64_t active_cycles;
         };
 
 
@@ -315,7 +315,7 @@ namespace PsPIN
 
         public:
 
-            virtual FMQ& get_next() = 0;
+            virtual FMQ* get_next() = 0;
 
             bool is_one_ready()
             {
@@ -348,16 +348,17 @@ namespace PsPIN
 
             }
 
-            FMQ& get_next()
+            FMQ* get_next()
             {
                 for (int i=0; i<fmqs.size(); i++) {
                     FMQ& curr = fmqs[next];
                     next = (next + 1) % fmqs.size();
                     if (curr.is_ready()) {
-                        return curr;
+                        return &curr;
                     }
                 }
                 assert(0);
+                return NULL;
             }
 
         private:
@@ -378,7 +379,7 @@ namespace PsPIN
 
             }
 
-            FMQ& get_next()
+            FMQ* get_next()
             {
                 if (credit == 0 || !fmqs[curr].is_ready()) {
                     for (int i = 0; i < fmqs.size(); i++) {
@@ -387,7 +388,7 @@ namespace PsPIN
                         if (fmqs[next].is_ready()) {
                             curr = next;
                             credit = fmqs[next].get_priority() + 1;
-                            return fmqs[curr];
+                            return &fmqs[curr];
                         }
                         curr = next;
                     }
@@ -395,9 +396,10 @@ namespace PsPIN
                 } else {
                     assert(credit > 0);
                     credit--;
-
-                    return fmqs[curr];
+                    return &fmqs[curr];
                 }
+                assert(0);
+                return NULL;
             }
 
         private:
@@ -407,7 +409,7 @@ namespace PsPIN
 
         };
 
-	class FMQBVTArbiter : public FMQArbiter
+    class FMQBVTArbiter : public FMQArbiter
         {
 
         public:
@@ -418,59 +420,63 @@ namespace PsPIN
 
             }
 
-	    uint32_t get_weighted_hpu_limit(FMQ &fmq)
-	    {
-		uint32_t weighted_sum = 0;
-		uint32_t n_active = 0;
-
-		assert(fmq.is_ready());
-
-		for (auto &fmq : fmqs) {
-		    if (!fmq.is_empty()) {
-			n_active++;
-			weighted_sum += fmq.get_priority() + 1;
-		    }
-		}
-		assert(n_active);
-		assert(weighted_sum);
-
-		uint32_t limit = static_cast<size_t>(ceil(static_cast<double>(NUM_CLUSTERS * (NUM_CORES + BUFFERED_HERS_PER_CLUSTER)) *
-							  static_cast<double>(fmq.get_priority() + 1) /
-							  static_cast<double>(weighted_sum)));
-		assert(limit);
-		return(limit);
-	    }
-
-            FMQ& get_next()
+            uint32_t get_weighted_hpu_limit(FMQ &fmq)
             {
-		double min_rank = std::numeric_limits<double>::max();
+                uint32_t weighted_sum = 0;
+                uint32_t n_active = 0;
 
-		for (auto i = 0; i < fmqs.size(); i++) {
-		    FMQ &cur_fmq = fmqs[i];
-		    if (cur_fmq.is_ready()) {
-			if (enable_limiter){
-			    if (cur_fmq.get_task_in_flight() >= get_weighted_hpu_limit(cur_fmq)) {
-				continue;
-			    }
-			}
+                assert(fmq.is_ready());
 
-			double rank = cur_fmq.get_metric() / static_cast<double>(cur_fmq.get_priority() + 1);
-			if (rank < min_rank) {
-			    min_rank = rank;
-			    curr = i;
-			}
-		    }
-		}
+                for (auto &fmq : fmqs) {
+                    if (!fmq.is_empty()) {
+                        n_active++;
+                        weighted_sum += fmq.get_priority() + 1;
+                    }
+                }
 
-		assert(min_rank < UINT64_MAX);
-		return fmqs[curr];
+                assert(n_active);
+                assert(weighted_sum);
+
+                uint32_t limit = static_cast<size_t>(ceil(static_cast<double>(NUM_CLUSTERS * (NUM_CORES + BUFFERED_HERS_PER_CLUSTER)) *
+                                                          static_cast<double>(fmq.get_priority() + 1) /
+                                                          static_cast<double>(weighted_sum)));
+                assert(limit);
+                return(limit);
+            }
+
+            FMQ* get_next()
+            {
+                double min_rank = std::numeric_limits<double>::max();
+
+                for (auto i = 0; i < fmqs.size(); i++) {
+                    FMQ &cur_fmq = fmqs[i];
+                    if (cur_fmq.is_ready()) {
+                        if (enable_limiter) {
+                            if (cur_fmq.get_task_in_flight() >= get_weighted_hpu_limit(cur_fmq)) {
+                                continue;
+                            }
+                        }
+
+                        double rank = cur_fmq.get_metric() / static_cast<double>(cur_fmq.get_priority() + 1);
+                        if (rank < min_rank) {
+                            min_rank = rank;
+                            curr = i;
+                        }
+                    }
+                }
+
+                if (min_rank < UINT64_MAX) {
+                    return &fmqs[curr];
+                }
+
+                return NULL;
             }
 
         private:
 
             uint8_t credit;
             uint32_t curr;
-	    bool enable_limiter;
+            bool enable_limiter;
         };
 
 
@@ -508,10 +514,10 @@ namespace PsPIN
                 } else if (!strcmp(arbiter_type_env, "WRR")) {
                     printf("[DEBUG]: fmq_arbiter=WRR\n");
                     fmq_arbiter = new FMQWRRArbiter(fmqs);
-		} else if (!strcmp(arbiter_type_env, "BVT")) {
+        } else if (!strcmp(arbiter_type_env, "BVT")) {
                     printf("[DEBUG]: fmq_arbiter=BVT\n");
                     fmq_arbiter = new FMQBVTArbiter(fmqs);
-		} else if (!strcmp(arbiter_type_env, "WLBVT")) {
+        } else if (!strcmp(arbiter_type_env, "WLBVT")) {
                     printf("[DEBUG]: fmq_arbiter=WLBVT\n");
                     fmq_arbiter = new FMQBVTArbiter(fmqs, true);
                 } else {
@@ -604,7 +610,7 @@ namespace PsPIN
                 if (become_idle)
                     active_fmqs--;
 
-		Feedback f;
+                Feedback f;
                 f.feedback_her_addr = *sched_port.feedback_her_addr_i;
                 f.feedback_her_size = *sched_port.feedback_her_size_i;
                 f.feedback_msgid = *sched_port.feedback_msgid_i;
@@ -647,8 +653,8 @@ namespace PsPIN
 
         void produce_output_posedge()
         {
-	    for (auto &fmq : fmqs)
-		fmq.update_metric();
+            for (auto &fmq : fmqs)
+                fmq.update_metric();
 
             if (sched_not_ready)
                 return;
@@ -658,9 +664,12 @@ namespace PsPIN
             if (!(fmq_arbiter->is_one_ready()))
                 return;
 
-            FMQ& fmq_to_sched = fmq_arbiter->get_next();
+            FMQ *fmq_to_sched = fmq_arbiter->get_next();
+            if (!fmq_to_sched)
+                return;
 
-            Task task = fmq_to_sched.produce_next_task();
+            printf("fmq in_flight=%u\n", fmq_to_sched->get_task_in_flight());
+            Task task = fmq_to_sched->produce_next_task();
 
             //they should just be of the same type :(
             *sched_port.task_o.handler_addr = task.handler_addr;
@@ -683,7 +692,7 @@ namespace PsPIN
             *sched_port.task_o.trigger_feedback = task.trigger_feedback;
             *sched_port.task_valid_o = 1;
 
-	    SIM_PRINT("sent task to scheduler msg_id=%0d her_addr=%08x\n", task.msgid, task.pkt_addr);
+            SIM_PRINT("sent task to scheduler msg_id=%0d her_addr=%08x\n", task.msgid, task.pkt_addr);
         }
 
         void produce_output_negedge()
@@ -713,10 +722,10 @@ namespace PsPIN
             return fmqs[msg_id];
         }
 
-	void set_fmq_priority(size_t fmq_idx, uint8_t prio)
-	{
-	    fmqs[fmq_idx].set_priority(prio);
-	}
+    void set_fmq_priority(size_t fmq_idx, uint8_t prio)
+    {
+        fmqs[fmq_idx].set_priority(prio);
+    }
 
     private:
 
