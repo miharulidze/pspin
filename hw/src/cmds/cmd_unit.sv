@@ -13,7 +13,7 @@ import pspin_cfg_pkg::*;
 module cmd_unit #(
     parameter int unsigned NUM_CLUSTERS             = 4,
     parameter int unsigned NUM_CMD_INTERFACES       = 2,
-    parameter int unsigned INTF_RESP_BUFF_SIZE      = 8
+    parameter int unsigned INTF_RESP_BUFF_SIZE      = 728
 ) (
     input logic                                         clk_i,
     input logic                                         rst_ni,
@@ -145,7 +145,7 @@ module cmd_unit #(
             .push_i    (fifo_in_flight_req_push[i]),
             .data_o    (),
             .pop_i     (fifo_in_flight_req_pop[i])
-        ); 
+        );
 
         assign fifo_in_flight_req_push[i]       = cmd_arb_valid[i] && cmd_arb_ready[i];
         assign fifo_in_flight_req_pop[i]        = fifo_resp_buffer_pop[i];
@@ -168,7 +168,7 @@ module cmd_unit #(
             .push_i    (fifo_resp_buffer_push[i]),
             .data_o    (fifo_resp_buffer_data[i]),
             .pop_i     (fifo_resp_buffer_pop[i])
-        ); 
+        );
 
         assign fifo_resp_buffer_push[i] = intf_cmd_resp_valid_i[i];
         assign fifo_resp_buffer_pop[i] = fifo_resp_buffer_ready[i] && fifo_resp_buffer_valid[i];
@@ -206,7 +206,7 @@ module cmd_unit #(
         .data_i  (resp_arb_data),
         .valid_o (cmd_resp_valid_o),
         .ready_i (1'b1),
-        .data_o  (cmd_resp_o)    
+        .data_o  (cmd_resp_o)
     );
 
 endmodule

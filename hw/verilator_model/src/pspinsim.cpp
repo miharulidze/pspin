@@ -1,11 +1,11 @@
 // Copyright 2020 ETH Zurich
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -47,9 +47,9 @@
 #define DEFAULT_NO_AXI_AR_BUFFER 32
 #define DEFAULT_NO_AXI_R_BUFFER 32
 //#define DEFAULT_NO_NETWORK_G NETWORK_G_200G
-#define DEFAULT_NO_NETWORK_G 0 
-#define DEFAULT_NO_MAX_PKT_SIZE 2048
-#define DEFAULT_NO_NET_PKT_QUEUE_LEN 32
+#define DEFAULT_NO_NETWORK_G 0
+#define DEFAULT_NO_MAX_PKT_SIZE 4096
+#define DEFAULT_NO_NET_PKT_QUEUE_LEN 728
 
 #define DEFAULT_PCIE_SLV_AW_BUFFER_SIZE 32
 #define DEFAULT_PCIE_SLV_W_BUFFER_SIZE 32
@@ -100,7 +100,7 @@ int pspinsim_default_conf(pspin_conf_t *conf)
 
     conf->no_conf.axi_ar_buffer = DEFAULT_NO_AXI_AR_BUFFER;
     conf->no_conf.axi_r_buffer = DEFAULT_NO_AXI_R_BUFFER;
-    conf->no_conf.network_G = DEFAULT_NO_NETWORK_G;
+    conf->no_conf.network_G = NETWORK_G_400G;
     conf->no_conf.max_pkt_size = DEFAULT_NO_MAX_PKT_SIZE;
     conf->no_conf.max_network_queue_len = DEFAULT_NO_NET_PKT_QUEUE_LEN;
 
@@ -115,7 +115,7 @@ int pspinsim_default_conf(pspin_conf_t *conf)
     return SPIN_SUCCESS;
 }
 
-int pspinsim_init(int argc, char **argv, pspin_conf_t *conf) 
+int pspinsim_init(int argc, char **argv, pspin_conf_t *conf)
 {
     Verilated::commandArgs(argc, argv);
     Vpspin_verilator *tb = new Vpspin_verilator();
@@ -127,9 +127,26 @@ int pspinsim_init(int argc, char **argv, pspin_conf_t *conf)
         conf = &default_conf;
     }
 
+    bool enable_fragmentation = false;
+    char *fragm_envvar = getenv("OSMOSIS_EGRESS_FRAGMENTATION");
+    uint32_t fsize = 64;
+    uint32_t max_in_flight_ars = 32;
+    if (fragm_envvar) {
+        enable_fragmentation = true;
+        char *fsize_envvar = getenv("OSMOSIS_EGRESS_FSIZE");
+        if (fsize_envvar) {
+            fsize = atoi(fsize_envvar);
+        }
+
+        char *max_ars_envvar = getenv("OSMOSIS_EGRESS_MAX_IN_FLIGHT_ARS");
+        if (max_ars_envvar) {
+            fsize = atoi(max_ars_envvar);
+        }
+    }
+
     // Define ports
     AXI_MASTER_PORT_ASSIGN(tb, ni_slave, &ni_mst);
-    NI_CTRL_PORT_ASSIGN(&fmq_input_port, her, &ni_control)    
+    NI_CTRL_PORT_ASSIGN(&fmq_input_port, her, &ni_control)
     AXI_MASTER_PORT_ASSIGN(tb, no_slave, &no_mst);
     NO_CMD_PORT_ASSIGN(tb, nic_cmd, &no_cmd);
     AXI_SLAVE_PORT_ASSIGN(tb, host_master, &pcie_slv_port);
@@ -138,7 +155,7 @@ int pspinsim_init(int argc, char **argv, pspin_conf_t *conf)
 
     // Instantiate simulation-only modules
     ni = new NICInbound<AXIPort<uint32_t, uint64_t>>(ni_mst, ni_control, L2_PKT_BUFF_START, L2_PKT_BUFF_SIZE);
-    no = new NICOutbound<AXIPort<uint32_t, uint64_t>>(no_mst, no_cmd, conf->no_conf.network_G, conf->no_conf.max_pkt_size, conf->no_conf.max_network_queue_len);
+    no = new NICOutbound<AXIPort<uint32_t, uint64_t>>(no_mst, enable_fragmentation, fsize, max_in_flight_ars, no_cmd, conf->no_conf.network_G, conf->no_conf.max_pkt_size, conf->no_conf.max_network_queue_len);
     pcie_slv = new PCIeSlave<AXIPort<uint64_t, uint64_t>>(pcie_slv_port, conf->pcie_slv_conf.axi_aw_buffer, conf->pcie_slv_conf.axi_w_buffer, conf->pcie_slv_conf.axi_ar_buffer, conf->pcie_slv_conf.axi_r_buffer, conf->pcie_slv_conf.axi_b_buffer, conf->pcie_slv_conf.pcie_L, conf->pcie_slv_conf.pcie_G);
     pcie_mst = new PCIeMaster<AXIPort<uint32_t, uint64_t>>(pcie_mst_port);
     fmq_eng = new FMQEngine(fmq_input_port, sched_port, &(tb->sim_finish_i));
@@ -150,7 +167,7 @@ int pspinsim_init(int argc, char **argv, pspin_conf_t *conf)
     sim->add_module(*pcie_mst);
     sim->add_module(*fmq_eng);
 
-    //before the reset!    
+    //before the reset!
     const char *slm_files_path = conf->slm_files_path;
     if (slm_files_path==NULL) {
         char *pspin_hw_env = getenv("PSPIN_HW");
@@ -187,7 +204,7 @@ int pspinsim_run_tick(uint8_t* done_flag)
     return SPIN_SUCCESS;
 }
 
-int pspinsim_fini() 
+int pspinsim_fini()
 {
     printf("\n###### Statistics ######\n");
     for (auto it = sim->get_modules().begin(); it != sim->get_modules().end(); ++it){
@@ -195,7 +212,7 @@ int pspinsim_fini()
         printf("----------------------------------\n");
     }
     delete sim;
-    
+
     return SPIN_SUCCESS;
 }
 
@@ -232,7 +249,7 @@ int pspinsim_packet_eos()
 
 int pspinsim_cb_set_pkt_out(pkt_out_cb_t cb)
 {
-    NICOutbound<AXIPort<uint32_t, uint64_t>>::out_packet_cb_t f(cb);   
+    NICOutbound<AXIPort<uint32_t, uint64_t>>::out_packet_cb_t f(cb);
     no->set_packet_out_cb(f);
     return SPIN_SUCCESS;
 }
@@ -269,7 +286,7 @@ int pspinsim_cb_set_pcie_mst_read_completion(pcie_mst_read_cb_t cb)
 
 int pspinsim_cb_set_pkt_feedback(pkt_feedback_cb_t cb)
 {
-    NICInbound<AXIPort<uint32_t, uint64_t>>::pkt_feedback_cb_t f(cb);   
+    NICInbound<AXIPort<uint32_t, uint64_t>>::pkt_feedback_cb_t f(cb);
     ni->set_feedback_cb(f);
     return SPIN_SUCCESS;
 }

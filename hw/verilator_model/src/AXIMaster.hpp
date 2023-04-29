@@ -1,11 +1,11 @@
 // Copyright 2020 ETH Zurich
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,7 +18,6 @@
 
 namespace PsPIN
 {
-
     template <typename AXIPortType>
     class AXIMaster : public AXIDriver<AXIPortType>
     {
@@ -36,11 +35,12 @@ namespace PsPIN
         using AXIDriver<AXIPortType>::beat_upper_byte;
 
     private:
-        typedef struct axi_r_buffered 
+        typedef struct axi_r_buffered
         {
             uint32_t data_length;
             uint8_t data[AXI_SW];
             bool is_last;
+            bool is_middle;
         } axi_r_buffered_t;
 
     private:
@@ -52,7 +52,6 @@ namespace PsPIN
         // by multiple AW beats. Same for reads.
         std::queue<axi_b_queue_entry_t> write_queue;
         std::queue<axi_r_queue_entry_t> read_queue;
-
 
         std::queue<axi_ax_beat_t> ar_queue;
         std::queue<bool> b_queue;
@@ -71,9 +70,42 @@ namespace PsPIN
         uint32_t ar_beats_buffer_size;
         uint32_t r_beats_buffer_size;
 
+    private: // OSMOSIS fragmentation
+        typedef uint32_t request_id_t;
+
+        typedef struct axi_r_request_state
+        {
+            std::queue<axi_ax_beat_t> ar_pending_queue;
+            axi_r_queue_entry_t entry;
+        } axi_r_request_state_t;
+
+        std::queue<request_id_t> ar_pending_progress_queue;
+        std::queue<request_id_t> r_pending_progress_queue;
+        std::unordered_map<request_id_t, axi_r_request_state_t> active_r_reqs;
+
+        uint32_t key;
+        bool enable_fragmentation;
+        uint32_t fragment_size;
     public:
 
-        bool has_aw_beat() 
+        axi_r_request_state_t& get_r_request(request_id_t rid)
+        {
+            return active_r_reqs[rid];
+        }
+
+        void remove_r_request(request_id_t rid)
+        {
+            active_r_reqs.erase(rid);
+        }
+
+        request_id_t add_r_request(axi_r_request_state_t &request)
+        {
+            request_id_t rid = key++;
+            assert(active_r_reqs.insert({rid, request}).second);
+            return rid;
+        }
+
+        bool has_aw_beat()
         {
             return !aw_pending_queue.empty();
         }
@@ -93,6 +125,9 @@ namespace PsPIN
 
         bool has_ar_beat()
         {
+            if (enable_fragmentation)
+                return !ar_pending_progress_queue.empty();
+
             return !ar_pending_queue.empty();
         }
 
@@ -101,15 +136,35 @@ namespace PsPIN
             return ar_beats_buffer_size == 0 || ar_queue.size() < ar_beats_buffer_size;
         }
 
-        void send_ar_beat()
+        request_id_t send_ar_beat()
         {
-            assert(!ar_pending_queue.empty() && can_send_ar_beat());
-            axi_ax_beat_t &ar = ar_pending_queue.front();
-            ar_queue.push(ar);
-            ar_pending_queue.pop();
+            if (!enable_fragmentation) {
+                assert(!ar_pending_queue.empty() && can_send_ar_beat());
+                axi_ax_beat_t &ar = ar_pending_queue.front();
+                ar_queue.push(ar);
+                ar_pending_queue.pop();
+            } else {
+                assert(!(ar_pending_progress_queue.empty()) && can_send_ar_beat());
+                auto rid = ar_pending_progress_queue.front();
+                axi_r_request_state_t &req = get_r_request(rid);
+                auto &ar = req.ar_pending_queue.front();
+                req.ar_pending_queue.pop();
+                ar_pending_progress_queue.pop();
+
+                if (!req.ar_pending_queue.empty())
+                    ar_pending_progress_queue.push(rid);
+
+                //printf("MASTER: req=%u pushed ar_beat to ar queue, r_pend_size=%u\n", rid, r_pending_progress_queue.size());
+
+                ar_queue.push(ar);
+                r_pending_progress_queue.push(rid);
+
+                return rid;
+            }
+            return 0;
         }
 
-        bool has_w_beat() 
+        bool has_w_beat()
         {
             return !w_pending_queue.empty();
         }
@@ -132,20 +187,41 @@ namespace PsPIN
             return !r_queue.empty();
         }
 
-        bool consume_r_beat(uint8_t *data, uint32_t &data_length)
+        bool consume_r_beat(uint8_t *data, uint32_t &data_length, request_id_t req_id, bool &finished_burst)
         {
             assert(has_r_beat());
-            axi_r_buffered_t r = r_queue.front();
-            data_length = std::min(data_length, r.data_length);
-            if (data!=NULL) {
-                memcpy(data, &(r.data[0]), data_length);
+
+            if (!enable_fragmentation) {
+                axi_r_buffered_t r = r_queue.front();
+                data_length = std::min(data_length, r.data_length);
+
+                if (data!=NULL)
+                    memcpy(data, &(r.data[0]), data_length);
+
+                bool read_complete = r.is_last;
+                r_queue.pop();
+                return read_complete;
+            } else {
+                axi_r_buffered_t r = r_queue.front();
+                data_length = std::min(data_length, r.data_length);
+
+                if (data!=NULL)
+                    memcpy(data, &(r.data[0]), data_length);
+
+                bool read_complete = r.is_last;
+                if (read_complete)
+                    remove_r_request(req_id);
+
+                r_queue.pop();
+                finished_burst = r.is_middle;
+                return read_complete;
             }
-            bool read_complete = r.is_last;
-            r_queue.pop();
-            return read_complete;
+
+            assert(0);
+            return false;
         }
 
-        bool has_b_beat() 
+        bool has_b_beat()
         {
             return !b_queue.empty();
         }
@@ -183,7 +259,9 @@ namespace PsPIN
         }
 
     public:
-        AXIMaster(AXIPortType &port) : AXIDriver<AXIPortType>(port)
+        AXIMaster(AXIPortType &port,
+                  bool fragmentation = false, uint32_t fsize = 64, uint32_t max_in_flight_ars = 32) :
+            AXIDriver<AXIPortType>(port)
         {
             *port.aw_valid = 0;
             *port.aw_valid = 0;
@@ -201,6 +279,13 @@ namespace PsPIN
             w_beats_buffer_size = 0;
             r_beats_buffer_size = 0;
             b_beats_buffer_size = 0;
+
+            enable_fragmentation = fragmentation;
+            fragment_size = fsize;
+            key = 1;
+            if (enable_fragmentation) {
+                ar_beats_buffer_size = max_in_flight_ars;
+            }
         }
 
         void posedge()
@@ -246,7 +331,7 @@ namespace PsPIN
 
                 aw_cnt++;
                 //printf("Write: #w (aw_cnt: %u): %u; bytes_written: %u\n", aw_cnt, aw_beat.ax_len, bytes_written);
-                
+
                 // Send W beats filled with data from the `data` array.
                 for (uint32_t i_beat = 0; i_beat <= aw_beat.ax_len; i_beat++)
                 {
@@ -284,22 +369,63 @@ namespace PsPIN
             }
         }
 
-        void read(axi_addr_t addr, uint32_t n_bytes)
+        request_id_t read(axi_addr_t addr, uint32_t n_bytes)
         {
-            axi_r_queue_entry_t read_queue_entry;
-            std::queue<beat_and_size_t> ar_beats;
+            if (!enable_fragmentation) {
+                axi_r_queue_entry_t read_queue_entry;
+                std::queue<beat_and_size_t> ar_beats;
 
-            create_ax_beats(addr, n_bytes, ar_beats);
-            read_queue_entry.n_bursts = ar_beats.size();
-            read_queue_entry.data_left = n_bytes;
-            read_queue.push(read_queue_entry);
+                create_ax_beats(addr, n_bytes, ar_beats);
+                read_queue_entry.n_bursts = ar_beats.size();
+                read_queue_entry.data_left = n_bytes;
+                read_queue.push(read_queue_entry);
 
-            while (ar_beats.size() != 0)
-            {
-                beat_and_size_t &bs = ar_beats.front();
-                ar_beats.pop();
-                axi_ax_beat_t ar_beat = bs.beat;
-                ar_pending_queue.push(ar_beat);
+                while (ar_beats.size() != 0) {
+                    beat_and_size_t &bs = ar_beats.front();
+                    ar_beats.pop();
+                    axi_ax_beat_t ar_beat = bs.beat;
+                    ar_pending_queue.push(ar_beat);
+                }
+                return 0;
+            } else {
+                //printf("got new pkt=%u n_reqs_in_flight=%u\n", n_bytes, active_r_reqs.size());
+                axi_r_request_state_t new_req;
+
+                new_req.entry.n_bursts = 0;
+                new_req.entry.data_left = n_bytes;
+
+                for (; n_bytes >= fragment_size; n_bytes -= fragment_size) {
+                    std::queue<beat_and_size_t> ar_beats;
+                    create_ax_beats(addr, fragment_size, ar_beats);
+                    new_req.entry.n_bursts += ar_beats.size();
+                    addr += fragment_size;
+
+                    while (ar_beats.size() != 0) {
+                        auto &bs = ar_beats.front();
+                        ar_beats.pop();
+                        auto ar_beat = bs.beat;
+                        new_req.ar_pending_queue.push(ar_beat);
+                    }
+                }
+
+                if (n_bytes > 0) {
+                    std::queue<beat_and_size_t> ar_beats;
+                    create_ax_beats(addr, n_bytes, ar_beats);
+                    new_req.entry.n_bursts += ar_beats.size();
+
+                    while (ar_beats.size() != 0) {
+                        auto &bs = ar_beats.front();
+                        ar_beats.pop();
+                        auto ar_beat = bs.beat;
+                        new_req.ar_pending_queue.push(ar_beat);
+                    }
+                }
+
+                request_id_t rid = add_r_request(new_req);
+                ar_pending_progress_queue.push(rid);
+                //printf("MASTER: req=%u added to pending queue with %u ar_beats\n", rid, new_req.ar_pending_queue.size());
+
+                return rid;
             }
         }
 
@@ -351,16 +477,12 @@ namespace PsPIN
         void ar_posedge()
         {
             if (ar_wait)
-            {
                 return;
-            }
 
             *port.ar_valid = 0;
 
             if (ar_queue.empty())
-            {
                 return;
-            }
 
             // send next AR beat
             axi_ax_beat_t &ar_beat = ar_queue.front();
@@ -460,26 +582,50 @@ namespace PsPIN
         {
             bool can_accept_r = r_beats_buffer_size == 0 || r_queue.size() < r_beats_buffer_size;
 
-            if (*port.r_valid && can_accept_r)
-            {
-                assert(!read_queue.empty());
-                axi_r_queue_entry_t &entry = read_queue.front();
+            if (*port.r_valid && can_accept_r) {
+                if (!enable_fragmentation) {
+                    assert(!read_queue.empty());
+                    axi_r_queue_entry_t &entry = read_queue.front();
 
-                uint32_t data_size = std::min((uint32_t)AXI_SW, entry.data_left);
-                uint32_t completed_burst = (*port.r_last == 1) ? 1 : 0;
-                
-                *port.r_ready = 1;
+                    uint32_t data_size = std::min((uint32_t)AXI_SW, entry.data_left);
+                    uint32_t completed_burst = (*port.r_last == 1) ? 1 : 0;
 
-                entry.n_bursts -= completed_burst;
-                entry.data_left -= data_size;
-                bool is_complete = entry.n_bursts == 0;
-                if (is_complete) read_queue.pop();
+                    *port.r_ready = 1;
 
-                axi_r_buffered_t r_buff;
-                r_buff.data_length = data_size;
-                memcpy(r_buff.data, port.r_data, data_size);
-                r_buff.is_last = is_complete;
-                r_queue.push(r_buff);
+                    entry.n_bursts -= completed_burst;
+                    entry.data_left -= data_size;
+                    bool is_complete = entry.n_bursts == 0;
+                    if (is_complete)
+                        read_queue.pop();
+
+                    axi_r_buffered_t r_buff;
+                    r_buff.data_length = data_size;
+                    memcpy(r_buff.data, port.r_data, data_size);
+                    r_buff.is_last = is_complete;
+                    r_queue.push(r_buff);
+                } else {
+                    auto rid = r_pending_progress_queue.front();
+                    axi_r_request_state_t &req = get_r_request(rid);
+
+                    uint32_t data_size = std::min((uint32_t)AXI_SW, req.entry.data_left);
+                    uint32_t completed_burst = (*port.r_last == 1) ? 1 : 0;
+                    //printf("completed burst ? = %u %u\n", completed_burst, data_size);
+                    if (completed_burst)
+                        r_pending_progress_queue.pop();
+
+                    *port.r_ready = 1;
+
+                    req.entry.n_bursts -= completed_burst;
+                    req.entry.data_left -= data_size;
+                    bool is_complete = req.entry.n_bursts == 0;
+
+                    axi_r_buffered_t r_buff;
+                    r_buff.data_length = data_size;
+                    memcpy(r_buff.data, port.r_data, data_size);
+                    r_buff.is_middle = completed_burst;
+                    r_buff.is_last = is_complete;
+                    r_queue.push(r_buff);
+                }
             }
         }
 

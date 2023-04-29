@@ -1,11 +1,11 @@
 // Copyright 2020 ETH Zurich
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -61,8 +61,8 @@ namespace PsPIN
         uint32_t bytes_written, bytes_read;
 
     public:
-        PCIeMaster<AXIPortType>(AXIPortType &axi_mst) 
-        : axi_driver(axi_mst)
+        PCIeMaster<AXIPortType>(AXIPortType &axi_mst)
+          : axi_driver(axi_mst, false)
         {
             bytes_written = 0;
             bytes_read = 0;
@@ -108,7 +108,7 @@ namespace PsPIN
             progress_axi_reads();
             axi_driver.posedge();
             progress_axi_write_responses();
-            progress_axi_read_responses();        
+            progress_axi_read_responses();
         }
 
         void negedge()
@@ -120,7 +120,7 @@ namespace PsPIN
         {
             printf("PCIe Master:\n");
             printf("\tBytes written: %d; Bytes read: %d\n", bytes_written, bytes_read);
-        
+
         }
 
     private:
@@ -177,7 +177,8 @@ namespace PsPIN
                 read_descr.offset += length;
 
                 //do something with this data
-                read_complete = axi_driver.consume_r_beat(dest_ptr, length);
+                bool dummy;
+                read_complete = axi_driver.consume_r_beat(dest_ptr, length, 42, dummy);
 
                 if (read_complete)
                 {

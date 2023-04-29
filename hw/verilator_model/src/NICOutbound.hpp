@@ -1,11 +1,11 @@
 // Copyright 2020 ETH Zurich
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,11 +25,11 @@
 #include <stdio.h>
 
 #define RDMA_HEADER_LENGTH 32
-#define NUM_PARALLEL_CMD 16
+#define NUM_PARALLEL_CMD 728
 
 // The network delay is computed by slicing the packet in words
 // and applying G to the number of segments. This is to
-#define WORD_SIZE 64 
+#define WORD_SIZE 64
 
 namespace PsPIN
 {
@@ -56,7 +56,7 @@ namespace PsPIN
             }
         };
 
-        class NICCommand 
+        class NICCommand
         {
             public:
                 uint64_t source_addr;
@@ -68,13 +68,15 @@ namespace PsPIN
 
         class Packetizer
         {
-            private: 
+            private:
                 uint32_t num_parallel_cmds;
                 uint32_t max_packet_len;
                 std::queue<NICCommand> commands;
 
             public:
-                Packetizer(uint32_t num_parallel_cmds, uint32_t max_packet_len) : num_parallel_cmds(num_parallel_cmds), max_packet_len(max_packet_len)
+                Packetizer(uint32_t num_parallel_cmds, uint32_t max_packet_len) :
+                    num_parallel_cmds(num_parallel_cmds),
+                    max_packet_len(max_packet_len)
                 {
                     ;
                 }
@@ -93,6 +95,7 @@ namespace PsPIN
                 {
                     assert(commands.size() < num_parallel_cmds);
                     commands.push(cmd);
+                    //printf("Outbound: commands_size=%u\n", commands.size());
                 }
 
                 NetworkPacket get_next_packet()
@@ -133,7 +136,7 @@ namespace PsPIN
         };
 
     public:
-            typedef std::function<void(uint8_t*, size_t)> out_packet_cb_t;
+        typedef std::function<void(uint8_t*, size_t)> out_packet_cb_t;
 
     private:
         AXIMaster<AXIPortType> axi_driver;
@@ -150,6 +153,11 @@ namespace PsPIN
 
         Packetizer packetizer;
 
+    private:
+        bool enable_fragmentation;
+        std::queue<uint32_t> beats_arrival_order;
+        std::unordered_map<uint32_t, NetworkPacket> dma_pkt_in_flight_fragmented;
+
     public:
         out_packet_cb_t pktout_cb;
 
@@ -162,8 +170,19 @@ namespace PsPIN
         uint64_t time_last_pkt;
 
     public:
-        NICOutbound<AXIPortType>(AXIPortType &no_mst, no_cmd_port_t &no_cmd, double network_G, uint32_t max_pkt_length, uint32_t network_buffer_size)
-            : axi_driver(no_mst), no_cmd(no_cmd), network_G(network_G), max_pkt_length(max_pkt_length), network_buffer_size(network_buffer_size), packetizer(NUM_PARALLEL_CMD, max_pkt_length)
+        NICOutbound<AXIPortType>(AXIPortType &no_mst,
+                                 bool fragmentation,
+                                 uint32_t fragment_size, uint32_t max_in_flight_ars,
+                                 no_cmd_port_t &no_cmd,
+                                 double network_G,
+                                 uint32_t max_pkt_length,
+                                 uint32_t network_buffer_size)
+            : axi_driver(no_mst, fragmentation, fragment_size, max_in_flight_ars),
+              no_cmd(no_cmd),
+              network_G(network_G),
+              max_pkt_length(max_pkt_length),
+              network_buffer_size(network_buffer_size),
+              packetizer(NUM_PARALLEL_CMD, max_pkt_length)
         {
             *no_cmd.no_cmd_resp_valid_o = 0;
             *no_cmd.no_cmd_req_ready_o = 0;
@@ -175,6 +194,8 @@ namespace PsPIN
             total_bytes = 0;
             time_first_pkt = 0;
             time_last_pkt = 0;
+
+            enable_fragmentation = fragmentation;
         }
 
         void posedge()
@@ -206,14 +227,13 @@ namespace PsPIN
 
             if (*no_cmd.no_cmd_req_valid_i && can_accept_cmd)
             {
-
-                NICCommand cmd; 
+                NICCommand cmd;
                 cmd.source_addr = *no_cmd.no_cmd_req_src_addr_i;
                 cmd.length = *no_cmd.no_cmd_req_length_i;
                 cmd.nid = *no_cmd.no_cmd_req_nid_i;
                 cmd.fid = *no_cmd.no_cmd_req_fid_i;
                 cmd.cmd_id =  *no_cmd.no_cmd_req_id_i;
-                
+
                 assert(cmd.fid>0 || cmd.length <= max_pkt_length);
 
                 SIM_PRINT("NIC outbound got new command: source_addr: 0x%lx; length: %d; FID: %d (>0 is RDMA)\n", cmd.source_addr, cmd.length, cmd.fid);
@@ -227,12 +247,23 @@ namespace PsPIN
 
         void progress_packets()
         {
-            bool can_send_pkt = network_queue.size() + dma_pkt_in_flight.size() < network_buffer_size;
+            bool can_send_pkt = network_queue.size() +
+                (enable_fragmentation ?
+                 dma_pkt_in_flight_fragmented.size() : dma_pkt_in_flight.size())
+                < network_buffer_size;
+
             if (packetizer.has_packets() && can_send_pkt)
             {
                 NetworkPacket pkt = packetizer.get_next_packet();
-                axi_driver.read(pkt.source_addr, pkt.payload_length);
-                dma_pkt_in_flight.push(pkt);
+                if (!enable_fragmentation) {
+                    axi_driver.read(pkt.source_addr, pkt.payload_length);
+                    dma_pkt_in_flight.push(pkt);
+                } else {
+                    uint32_t req = axi_driver.read(pkt.source_addr, pkt.payload_length);
+                    //printf("new req_id=%u\n", req);
+                    assert(dma_pkt_in_flight_fragmented.insert({req, pkt}).second);
+                    //printf("Outbound: pkt_in_flight=%u network_q_size=%u network_buf_size=%u\n", dma_pkt_in_flight_fragmented.size(), network_queue.size(), network_buffer_size);
+                }
             }
         }
 
@@ -249,7 +280,7 @@ namespace PsPIN
             if (!network_queue.empty())
             {
                 NetworkPacket &pkt = network_queue.front();
-                
+
                 wait_cycles = ((uint32_t)(network_G * WORD_SIZE)) * std::floor((double) pkt.length / WORD_SIZE);
 
                 if (pkt.is_last)
@@ -262,7 +293,7 @@ namespace PsPIN
 
                 if (pktout_cb) pktout_cb((uint8_t*) &(pkt.data[0]), pkt.length);
 
-                SIM_PRINT("packet sent; size: %d; wait_cycles: %d (G: %lf); is_last: %d\n", pkt.length, wait_cycles, network_G, (uint32_t) pkt.is_last);
+                //SIM_PRINT("packet sent; size: %d; wait_cycles: %d (G: %lf); is_last: %d\n", pkt.length, wait_cycles, network_G, (uint32_t) pkt.is_last);
 
                 if (total_pkts==0) time_first_pkt = sim_time();
                 time_last_pkt = sim_time();
@@ -278,32 +309,63 @@ namespace PsPIN
         {
             if (axi_driver.has_ar_beat() && axi_driver.can_send_ar_beat())
             {
-                axi_driver.send_ar_beat();
+                if (!enable_fragmentation) {
+                    axi_driver.send_ar_beat();
+                } else {
+                    uint32_t req = axi_driver.send_ar_beat();
+                    //printf("order of arrival req_id=%u\n", req);
+                    dma_pkt_in_flight_fragmented.at(req);
+                    beats_arrival_order.push(req);
+                }
             }
         }
 
         void progress_axi_read_responses()
         {
+            if (axi_driver.has_r_beat()) {
+                if (!enable_fragmentation) {
+                    bool read_complete;
+                    uint32_t length = AXI_SW;
 
-            if (axi_driver.has_r_beat())
-            {
-                bool read_complete;
-                uint32_t length = AXI_SW;
+                    assert(!dma_pkt_in_flight.empty());
+                    NetworkPacket &pkt = dma_pkt_in_flight.front();
 
-                assert(!dma_pkt_in_flight.empty());
-                NetworkPacket &pkt = dma_pkt_in_flight.front();
+                    uint8_t *dest_ptr = ((uint8_t *)&(pkt.data[0])) + pkt.current_offset;
+                    bool finished_burst;
+                    read_complete = axi_driver.consume_r_beat(dest_ptr, length, 42, finished_burst);
 
-                uint8_t *dest_ptr = ((uint8_t *)&(pkt.data[0])) + pkt.current_offset;
-                read_complete = axi_driver.consume_r_beat(dest_ptr, length);
+                    pkt.current_offset += length;
 
-                pkt.current_offset += length;
+                    if (read_complete) {
+                        //printf("pkt.current_offset: %d; pkt.length: %d\n", pkt.current_offset, pkt.length);
+                        assert(pkt.current_offset == pkt.payload_length);
+                        network_queue.push(pkt);
+                        dma_pkt_in_flight.pop();
+                    }
+                } else {
+                    bool read_complete;
+                    uint32_t length = AXI_SW;
+                    assert(!beats_arrival_order.empty());
+                    uint32_t pkt_id = beats_arrival_order.front();
+                    //printf("order of completion req_id=%u\n", pkt_id);
 
-                if (read_complete)
-                {
-                    //printf("pkt.current_offset: %d; pkt.length: %d\n", pkt.current_offset, pkt.length);
-                    assert(pkt.current_offset == pkt.payload_length);
-                    network_queue.push(pkt);
-                    dma_pkt_in_flight.pop();
+                    assert(!dma_pkt_in_flight_fragmented.empty());
+                    NetworkPacket &pkt = dma_pkt_in_flight_fragmented.at(pkt_id);
+
+                    uint8_t *dest_ptr = ((uint8_t *)&(pkt.data[0])) + pkt.current_offset;
+                    bool finished_burst = false;
+                    read_complete = axi_driver.consume_r_beat(dest_ptr, length, pkt_id, finished_burst);
+                    pkt.current_offset += length;
+
+                    if (finished_burst)
+                        beats_arrival_order.pop();
+
+                    if (read_complete) {
+                        //printf("pkt.current_offset: %d; pkt.length: %d\n", pkt.current_offset, pkt.length);
+                        assert(pkt.current_offset == pkt.payload_length);
+                        network_queue.push(pkt);
+                        dma_pkt_in_flight_fragmented.erase(pkt_id);
+                    }
                 }
             }
         }
@@ -311,9 +373,9 @@ namespace PsPIN
         public:
             void print_stats()
             {
-                double avg_pkt_length = ((double) total_bytes) / total_pkts;            
+                double avg_pkt_length = ((double) total_bytes) / total_pkts;
                 double avg_intra_pkt = ((double) (time_last_pkt - time_first_pkt)) / (1000*(total_pkts-1));
-                double avg_pkt_throughput = THROUGHPUT_1GHZ(avg_intra_pkt, avg_pkt_length);            
+                double avg_pkt_throughput = THROUGHPUT_1GHZ(avg_intra_pkt, avg_pkt_length);
 
                 printf("NIC outbound engine:\n");
                 printf("\tCommands: %d; Packets: %d; Bytes: %d\n", total_cmds, total_pkts, total_bytes);
