@@ -24,14 +24,11 @@
 #define SEED 42
 #define MAX_STRING_LEN 1024
 const char *handler_file = "build/kernels";
-//const char *hh = NULL;
-//const char *ph = "spinner_ph";
-//const char *th = NULL;
 
 int bmark_parse_arguments(int argc, char **argv, const char **ph)
 {
     if (argc != 4) {
-        printf("bad arguments: ./sim_hpu_contention -t <trace_name> <kernel_name>\n");
+        printf("bad arguments: ./sim_raw_tput -t <trace_name> <kernel_name>\n");
         assert(0);
     }
 
