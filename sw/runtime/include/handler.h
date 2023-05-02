@@ -35,6 +35,8 @@
     pkt_pld_len = ip_hdr->length - sizeof(ip_hdr_t) - sizeof(udp_hdr_t);            \
     pkt_pld_ptr = ((uint8_t *) pkt_ptr) + (ip_hdr->ihl * 4) + sizeof(udp_hdr_t);    \
 }
+//    pkt_pld_ptr = (uint8_t *) pkt_ptr + sizeof(pkt_hdr_t);             \
+
 
 typedef futex_t spin_lock_t;
 
@@ -313,3 +315,14 @@ void init_handlers7(handler_fn * hh, handler_fn *ph, handler_fn *th, void **hand
 void init_handlers8(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
 void init_handlers9(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
 void init_handlers10(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers11(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers12(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers13(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers14(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers15(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers16(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers17(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers18(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers19(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers20(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);
+void init_handlers21(handler_fn * hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr);

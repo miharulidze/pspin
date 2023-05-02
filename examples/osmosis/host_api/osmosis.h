@@ -26,30 +26,30 @@ typedef int (*match_packet_fun_t)(void*, void*, void*);
 
 typedef struct gdriver_ectx_conf {
     struct handler {
-	const char *file_name;
-	const char *hh_name;
-	const char *ph_name;
-	const char *th_name;
+    const char *file_name;
+    const char *hh_name;
+    const char *ph_name;
+    const char *th_name;
     } handler;
 
     struct handler_l2_img {
-	void *ptr;
-	size_t size;
+    void *ptr;
+    size_t size;
     } handler_l2_img;
 
     struct fmq_matching_rule {
-	void *ptr;
-	size_t size;
+    void *ptr;
+    size_t size;
     } fmq_matching_rule;
 
     struct slo {
-	uint8_t compute_prio;
-	uint8_t io_prio;
+    uint8_t compute_prio;
+    uint8_t io_prio;
     } slo;
 } gdriver_ectx_conf_t;
 
 typedef struct gdriver_packet_filler {
-    int (*cb)(void *, void *);
+    int (*cb)(void *, size_t, void *);
     void *data;
     size_t size;
 } gdriver_packet_filler_t;
@@ -60,4 +60,3 @@ int gdriver_add_pkt_filler(int ectx_id, const gdriver_packet_filler_t *filler);
 
 int gdriver_run();
 int gdriver_fini();
-

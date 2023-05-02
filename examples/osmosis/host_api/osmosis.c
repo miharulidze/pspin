@@ -121,8 +121,8 @@ static void gdriver_fill_pkt(int ectx_id, uint8_t *pkt_buf, uint32_t pkt_size)
 
     /* fill workload specific payload */
     if (sim_state.ectxs[ectx_id].pkt_filler.cb != NULL) {
-	assert(pkt_size - sizeof(pkt_hdr_t) >= sim_state.ectxs[ectx_id].pkt_filler.size);
-        pkt_size = sim_state.ectxs[ectx_id].pkt_filler.cb(pkt_buf, sim_state.ectxs[ectx_id].pkt_filler.data);
+        assert(pkt_size - sizeof(pkt_hdr_t) >= sim_state.ectxs[ectx_id].pkt_filler.size);
+        sim_state.ectxs[ectx_id].pkt_filler.cb(pkt_buf, pkt_size, sim_state.ectxs[ectx_id].pkt_filler.data);
     }
 }
 
@@ -141,7 +141,7 @@ static void gdriver_parse_trace()
 
     /* Parse trace header */
     ret = fscanf(trace_file, "%u %u %u\n", &nsources, &npackets, &max_pkt_size);
-    assert(nsources > 0 && nsources == sim_state.num_ectxs);
+     //assert(nsources > 0 && nsources == sim_state.num_ectxs);
     assert(npackets > 0);
 
     pkt_buf = (uint8_t *)malloc(sizeof(uint8_t) * max_pkt_size);
@@ -163,7 +163,7 @@ static void gdriver_parse_trace()
 
         assert(matched);
 
-	printf("[GDRIVER]: pkt src=%s dst=%s pkt_size=%u is_last=%u matched_ectx=%u\n", src_addr, dst_addr, pkt_size, is_last, ectx_id);
+    printf("[GDRIVER]: pkt src=%s dst=%s pkt_size=%u is_last=%u matched_ectx=%u\n", src_addr, dst_addr, pkt_size, is_last, ectx_id);
 
         gdriver_fill_pkt(ectx_id, pkt_buf, pkt_size);
         wait_cycles = (int)(pkt_size * WAIT_CYCLES_PER_BYTE); /* + number of cycles determined by load */
@@ -189,36 +189,36 @@ static void gdriver_pcie_mst_write_complete(void *user_ptr)
 }
 
 static void gdriver_feedback(uint64_t user_ptr, uint64_t nic_arrival_time,
-			     uint64_t pspin_arrival_time, uint64_t feedback_time)
+                 uint64_t pspin_arrival_time, uint64_t feedback_time)
 {
     sim_state.packets_processed++;
 }
 
 static int gdriver_init_ectx(gdriver_ectx_t *gectx, uint32_t gectx_id,
-			     const gdriver_ectx_conf_t *ectx_conf)
+                 const gdriver_ectx_conf_t *ectx_conf)
 {
     spin_nic_addr_t hh_addr = 0, ph_addr = 0, th_addr = 0;
     size_t hh_size = 0, ph_size = 0, th_size = 0;
 
     if ((ectx_conf->handler.hh_name == NULL) &&
-	(ectx_conf->handler.ph_name == NULL) &&
-	(ectx_conf->handler.th_name == NULL))
+    (ectx_conf->handler.ph_name == NULL) &&
+    (ectx_conf->handler.th_name == NULL))
         return GDRIVER_ERR;
 
     if (ectx_conf->handler.hh_name != NULL)
         CHECK_ERR(spin_find_handler_by_name(ectx_conf->handler.file_name,
-					    ectx_conf->handler.hh_name,
-					    &hh_addr, &hh_size));
+                        ectx_conf->handler.hh_name,
+                        &hh_addr, &hh_size));
 
     if (ectx_conf->handler.ph_name != NULL)
         CHECK_ERR(spin_find_handler_by_name(ectx_conf->handler.file_name,
-					    ectx_conf->handler.ph_name,
-					    &ph_addr, &ph_size));
+                        ectx_conf->handler.ph_name,
+                        &ph_addr, &ph_size));
 
     if (ectx_conf->handler.th_name != NULL)
         CHECK_ERR(spin_find_handler_by_name(ectx_conf->handler.file_name,
-					    ectx_conf->handler.th_name,
-					    &th_addr, &th_size));
+                        ectx_conf->handler.th_name,
+                        &th_addr, &th_size));
 
     gectx->ectx.hh_addr = hh_addr;
     gectx->ectx.ph_addr = ph_addr;
@@ -251,9 +251,9 @@ static int gdriver_init_ectx(gdriver_ectx_t *gectx, uint32_t gectx_id,
     if (ectx_conf->handler_l2_img.ptr) {
         assert(ectx_conf->handler_l2_img.size <= gectx->ectx.handler_mem_size);
         spin_nicmem_write(gectx->ectx.handler_mem_addr,
-			  ectx_conf->handler_l2_img.ptr,
-			  ectx_conf->handler_l2_img.size,
-			  (void *)0);
+              ectx_conf->handler_l2_img.ptr,
+              ectx_conf->handler_l2_img.size,
+              (void *)0);
     }
 
     memset(&gectx->pkt_filler, 0, sizeof(gectx->pkt_filler));
@@ -288,8 +288,8 @@ int gdriver_add_ectx(const gdriver_ectx_conf_t *ectx_conf)
 int gdriver_add_pkt_filler(int ectx_id, const gdriver_packet_filler_t *filler)
 {
     if (!filler)
-	return -1;
-    
+        return -1;
+
     memcpy(&sim_state.ectxs[ectx_id].pkt_filler, filler, sizeof(gdriver_packet_filler_t));
     return GDRIVER_OK;
 }

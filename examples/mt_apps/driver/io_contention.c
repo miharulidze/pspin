@@ -69,10 +69,11 @@ int bmark_parse_arguments(int argc, char **argv, bmark_params_t *bmark)
     return GDRIVER_OK;
 }
 
-int fill_benchmark_params_cb(void *pkt, void *params) {
+int fill_benchmark_params_cb(void *pkt, size_t pkt_size, void *params) {
     io_params_t *dst = (io_params_t *)((char *)pkt + sizeof(pkt_hdr_t));
     io_params_t *src = (io_params_t *)params;
     memcpy((void *)dst, params, sizeof(io_params_t));
+    return 0;
 }
 
 int main(int argc, char **argv)
