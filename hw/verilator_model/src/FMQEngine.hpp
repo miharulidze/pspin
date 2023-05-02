@@ -285,6 +285,11 @@ namespace PsPIN
                 return !hers.empty() && (state == HHReady || state == PHReady || state == THReady);
             }
 
+            size_t get_size()
+            {
+                return hers.size();
+            }
+
         private:
 
             enum State {
@@ -304,9 +309,9 @@ namespace PsPIN
             bool has_th;
             uint8_t priority;
             uint32_t task_in_flight;
-        double avg_tput;
-        uint64_t hpus_used;
-        uint64_t active_cycles;
+            double avg_tput;
+            uint64_t hpus_used;
+            uint64_t active_cycles;
         };
 
 
@@ -594,6 +599,9 @@ namespace PsPIN
                 if (was_idle) {
                     active_fmqs++;
                 }
+
+                SIM_PRINT("pushed task to FMQ her_addr=%08x msg_id=%0d fmq_size=%ld\n",
+                          new_her.her_addr, new_her.her_msgid, get_fmq(new_her.her_msgid).get_size());
             }
         }
 
@@ -668,7 +676,6 @@ namespace PsPIN
             if (!fmq_to_sched)
                 return;
 
-            printf("fmq in_flight=%u\n", fmq_to_sched->get_task_in_flight());
             Task task = fmq_to_sched->produce_next_task();
 
             //they should just be of the same type :(
@@ -692,7 +699,8 @@ namespace PsPIN
             *sched_port.task_o.trigger_feedback = task.trigger_feedback;
             *sched_port.task_valid_o = 1;
 
-            SIM_PRINT("sent task to scheduler msg_id=%0d her_addr=%08x\n", task.msgid, task.pkt_addr);
+            SIM_PRINT("sent task to scheduler her_addr=%08x msg_id=%0d fmq_size=%ld\n",
+                      task.pkt_addr, task.msgid, fmq_to_sched->get_size());
         }
 
         void produce_output_negedge()

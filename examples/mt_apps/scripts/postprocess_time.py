@@ -16,7 +16,7 @@ def parse_time(logsdir, bmark_name, victim_size, attacker_size, chunk_size, trac
 
     filename = f"{logsdir}/2.{bmark_name}.victim{victim_size}.attacker{attacker_size}.c{chunk_size}.{trace}.log"
 
-    if bmark_name == "dma_to_host_ph":
+    if bmark_name == "send_packet_ph":
         filename = f"{logsdir}/2.{bmark_name}.victim{victim_size}.atacker{attacker_size}.c{chunk_size}.{trace}.log"
 
     if not Path(filename).is_file():
@@ -44,11 +44,11 @@ def parse_time(logsdir, bmark_name, victim_size, attacker_size, chunk_size, trac
 
                 if re.search("sent task to scheduler", line):
                     chunks = line.strip().split(" ")
-                    msg_id = chunks[5].strip().split("=")[1]
+                    msg_id = chunks[6].strip().split("=")[1]
                     if (msg_id != str(tenant_id)):
                         continue
 
-                    her_addr = chunks[6].strip().split("=")[1]
+                    her_addr = chunks[5].strip().split("=")[1]
                     timestamps[str(tenant_id)][her_addr][-1].append(extract_timestamp(chunks[0]))
                     continue
 
@@ -102,8 +102,8 @@ def parse_logs(logsdir, expname, bmark_names, victim_sizes, attacker_sizes, chun
 
 parse_logs(
     logsdir=logs_dir,
-    expname="dma_to_host_contention",
-    bmark_names=["dma_to_host_ph","osmosis_dma_to_host_ph"],
+    expname="send_packet_contention",
+    bmark_names=["send_packet_ph","osmosis_send_packet_ph","osmosis_axi_send_packet_ph"],
     victim_sizes=["64"],
     attacker_sizes=["64","128","256","512","1024","2048","4096"],
     chunk_sizes=["64","128","256","512","baseline"],
