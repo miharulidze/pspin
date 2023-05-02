@@ -281,7 +281,7 @@ namespace PsPIN
             {
                 NetworkPacket &pkt = network_queue.front();
 
-                wait_cycles = ((uint32_t)(network_G * WORD_SIZE)) * std::floor((double) pkt.length / WORD_SIZE);
+                wait_cycles = (uint32_t)((network_G * WORD_SIZE) * std::floor((double) pkt.length / WORD_SIZE));
 
                 if (pkt.is_last)
                 {
@@ -293,7 +293,7 @@ namespace PsPIN
 
                 if (pktout_cb) pktout_cb((uint8_t*) &(pkt.data[0]), pkt.length);
 
-                //SIM_PRINT("packet sent; size: %d; wait_cycles: %d (G: %lf); is_last: %d\n", pkt.length, wait_cycles, network_G, (uint32_t) pkt.is_last);
+                SIM_PRINT("packet sent; size: %d; wait_cycles: %d (G: %lf); is_last: %d\n", pkt.length, wait_cycles, network_G, (uint32_t) pkt.is_last);
 
                 if (total_pkts==0) time_first_pkt = sim_time();
                 time_last_pkt = sim_time();
