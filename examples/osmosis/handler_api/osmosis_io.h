@@ -1,11 +1,5 @@
 #include <handler.h>
 
-#ifdef OSMOSIS_IO_MAX_INFLIGHT
-#define MAX_INFLIGHT_DMAS OSMOSIS_IO_MAX_INFLIGHT
-#else
-#define MAX_INFLIGHT_DMAS 1
-#endif
-
 typedef spin_dma_t osmosis_dma_t;
 
 static inline int
@@ -23,39 +17,24 @@ osmosis_cmd_wait(osmosis_cmd_t handle)
 }
 
 static inline int
-osmosis_dma(void* source, void* dest, size_t size,
+osmosis_dma(void* source, void* dest, size_t length,
             int direction, int options, osmosis_dma_t* xfer,
             uint32_t chunk_size)
 {
-    spin_dma_t xfers[MAX_INFLIGHT_DMAS];
-    size_t batch_size = chunk_size * MAX_INFLIGHT_DMAS;
-    size_t i, j;
-
-    /* Batch chunks */
-    for (; size >= batch_size; size -= batch_size) {
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_dma(source, dest, chunk_size, direction, options, &xfers[i]);
-            source = (char *)source + chunk_size;
-            dest = (char *)dest + chunk_size;
-        }
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_dma_wait(xfers[i]);
-        }
-    }
+    spin_dma_t tmp;
 
     /* Batch tail */
-    for (i = 0; size > chunk_size; size -= chunk_size, i++) {
-        spin_dma(source, dest, chunk_size, direction, options, &xfers[i]);
+    for (; length >= chunk_size; length -= chunk_size) {
+        spin_dma(source, dest, chunk_size, direction, options, &tmp);
         source = (char *)source + chunk_size;
         dest = (char *)dest + chunk_size;
+	spin_dma_wait(tmp);
     }
 
     /* And the last one... */
-    if (size > 0)
-        spin_dma(source, dest, size, direction, options, &xfers[i++]);
-
-    for (j = 0; j < i + 1; j++) {
-        spin_dma_wait(spin_dma_wait(xfers[j]));
+    if (length > 0) {
+        spin_dma(source, dest, length, direction, options, &tmp);
+        spin_dma_wait(tmp);
     }
 
     return SPIN_OK;
@@ -67,33 +46,18 @@ osmosis_dma_to_host(uint64_t host_addr, uint32_t nic_addr,
                     osmosis_cmd_t *xfer,
                     uint32_t chunk_size)
 {
-    spin_cmd_t xfers[MAX_INFLIGHT_DMAS];
-    size_t batch_size = chunk_size * MAX_INFLIGHT_DMAS;
-    size_t i, j;
+    spin_cmd_t tmp;
 
-    for (; length >= batch_size; length -= batch_size) {
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_dma_to_host(host_addr, nic_addr, chunk_size, generate_event, &xfers[i]);
-            host_addr = host_addr + chunk_size;
-            nic_addr = nic_addr + chunk_size;
-        }
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_dma_wait(xfers[i]);
-        }
-    }
-
-    for (i = 0; length > chunk_size; length -= chunk_size, i++) {
-        spin_dma_to_host(host_addr, nic_addr, chunk_size, generate_event, &xfers[i]);
+    for (; length >= chunk_size; length -= chunk_size) {
+        spin_dma_to_host(host_addr, nic_addr, chunk_size, generate_event, &tmp);
         host_addr = host_addr + chunk_size;
         nic_addr = nic_addr + chunk_size;
+        spin_cmd_wait(tmp);
     }
 
     if (length > 0) {
-        spin_dma_to_host(host_addr, nic_addr, length, generate_event, &xfers[i++]);
-    }
-
-    for (j = 0; j < i + 1; j++) {
-        spin_cmd_wait(spin_dma_wait(xfers[j]));
+        spin_dma_to_host(host_addr, nic_addr, length, generate_event, &tmp);
+        spin_cmd_wait(tmp);
     }
 
     return SPIN_OK;
@@ -105,32 +69,18 @@ osmosis_dma_from_host(uint64_t host_addr, uint32_t nic_addr,
                       osmosis_cmd_t *xfer,
                       uint32_t chunk_size)
 {
-    spin_cmd_t xfers[MAX_INFLIGHT_DMAS];
-    size_t batch_size = chunk_size * MAX_INFLIGHT_DMAS;
-    size_t i, j;
+    spin_cmd_t tmp;
 
-    for (; length >= batch_size; length -= batch_size) {
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_dma_from_host(host_addr, nic_addr, chunk_size, generate_event, &xfers[i]);
-            host_addr = host_addr + chunk_size;
-            nic_addr = nic_addr + chunk_size;
-        }
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_dma_wait(xfers[i]);
-        }
-    }
-
-    for (i = 0; length >= chunk_size; length -= chunk_size, i++) {
-        spin_dma_from_host(host_addr, nic_addr, chunk_size, generate_event, &xfers[i]);
+    for (; length >= chunk_size; length -= chunk_size) {
+        spin_dma_from_host(host_addr, nic_addr, chunk_size, generate_event, &tmp);
         host_addr = host_addr + chunk_size;
         nic_addr = nic_addr + chunk_size;
+        spin_cmd_wait(tmp);
     }
 
-    if (length > 0)
-        spin_dma_from_host(host_addr, nic_addr, length, generate_event, &xfers[i++]);
-
-    for (j = 0; j < i + 1; j++) {
-        spin_cmd_wait(spin_dma_wait(xfers[j]));
+    if (length > 0) {
+        spin_dma_from_host(host_addr, nic_addr, length, generate_event, &tmp);
+        spin_cmd_wait(tmp);
     }
 
     return SPIN_OK;
@@ -140,30 +90,17 @@ static inline int
 osmosis_send_packet(void *data, uint32_t length, osmosis_cmd_t *handle,
                     uint32_t chunk_size)
 {
-    spin_cmd_t xfers[MAX_INFLIGHT_DMAS];
-    size_t batch_size = chunk_size * MAX_INFLIGHT_DMAS;
-    size_t i, j;
+    spin_cmd_t xfer;
 
-    for (; length >= batch_size; length -= batch_size) {
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_send_packet(data, chunk_size, &xfers[i]);
-            data = (char *)data + chunk_size;
-        }
-        for (i = 0; i < MAX_INFLIGHT_DMAS; i++) {
-            spin_dma_wait(xfers[i]);
-        }
-    }
-
-    for (i = 0; length > chunk_size; length -= chunk_size, i++) {
-        spin_send_packet(data, chunk_size, &xfers[i]);
+    for (; length >= chunk_size; length -= chunk_size) {
+        spin_send_packet(data, chunk_size, &xfer);
         data = (char *)data + chunk_size;
+        spin_cmd_wait(xfer);
     }
 
-    if (length > 0)
-        spin_send_packet(data, length, &xfers[i++]);
-
-    for (j = 0; j < i + 1; j++) {
-        spin_cmd_wait(spin_dma_wait(xfers[j]));
+    if (length > 0) {
+        spin_send_packet(data, length, &xfer);
+        spin_cmd_wait(xfer);
     }
 
     return SPIN_OK;
