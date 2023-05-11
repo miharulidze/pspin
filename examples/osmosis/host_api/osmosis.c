@@ -28,7 +28,7 @@
 
 #define MAGIC_PATH "NULL"
 
-#define EC_MAX_NUM 2
+#define EC_MAX_NUM 4
 
 #define NIC_L2_ADDR 0x1c300000
 #define NIC_L2_SIZE (1024 * 1024)

@@ -20,6 +20,7 @@
 #endif
 
 #define DEFAULT_CHUNK_SIZE 512
+#define DIVISOR 512
 
 #include "../../osmosis/handler_api/osmosis_io.h"
 #include "kernels.h"
@@ -233,6 +234,20 @@ __handler__ void io_write_ph(handler_args_t *args)
     spin_cmd_wait(dma);
 }
 
+__handler__ void osmosis_io_write_ph(handler_args_t *args)
+{
+    task_t* task = args->task;
+    ip_hdr_t *ip_hdr = (ip_hdr_t*) (task->pkt_mem);
+    uint8_t *nic_pld_addr = ((uint8_t*) (task->pkt_mem));
+    uint16_t pkt_pld_len = ip_hdr->length;
+    osmosis_cmd_t dma;
+
+    uint64_t host_address = task->host_mem_high;
+    host_address = (host_address << 32) | (task->host_mem_low);
+    osmosis_dma_to_host(host_address, (uint32_t) nic_pld_addr, pkt_pld_len, 1, &dma, DEFAULT_CHUNK_SIZE);
+    osmosis_cmd_wait(dma);
+}
+
 __handler__ void io_read_ph(handler_args_t *args)
 {
     task_t* task = args->task;
@@ -249,30 +264,20 @@ __handler__ void io_read_ph(handler_args_t *args)
     udp_hdr->src_port = udp_hdr->dst_port;
     udp_hdr->dst_port = src_port;
 
-    spin_cmd_t dma;
-
-    uint64_t host_address = task->host_mem_high;
-    host_address = (host_address << 32) | (task->host_mem_low);
-    spin_dma_from_host(host_address, (uint32_t) nic_pld_addr, pkt_pld_len, 1, &dma);
-
-    spin_cmd_wait(dma);
-
     spin_cmd_t send;
-    spin_send_packet(nic_pld_addr, pkt_pld_len, &send);
-}
-
-__handler__ void osmosis_io_write_ph(handler_args_t *args)
-{
-    task_t* task = args->task;
-    ip_hdr_t *ip_hdr = (ip_hdr_t*) (task->pkt_mem);
-    uint8_t *nic_pld_addr = ((uint8_t*) (task->pkt_mem));
-    uint16_t pkt_pld_len = ip_hdr->length;
-    osmosis_cmd_t dma;
-
+    spin_cmd_t dma;
     uint64_t host_address = task->host_mem_high;
     host_address = (host_address << 32) | (task->host_mem_low);
-    osmosis_dma_to_host(host_address, (uint32_t) nic_pld_addr, pkt_pld_len, 1, &dma, DEFAULT_CHUNK_SIZE);
-    osmosis_cmd_wait(dma);
+
+    uint32_t n_reqs = pkt_pld_len >> 10; // pkt_pld_len/1024
+    n_reqs += 1;
+
+    for (; n_reqs > 0; n_reqs--) {
+        spin_dma_from_host(host_address, (uint32_t) nic_pld_addr, pkt_pld_len, 1, &dma);
+        spin_cmd_wait(dma);
+        spin_send_packet(nic_pld_addr, pkt_pld_len, &send);
+        spin_cmd_wait(send);
+    }
 }
 
 __handler__ void osmosis_io_read_ph(handler_args_t *args)
@@ -280,7 +285,7 @@ __handler__ void osmosis_io_read_ph(handler_args_t *args)
     task_t* task = args->task;
     ip_hdr_t *ip_hdr = (ip_hdr_t*) (task->pkt_mem);
     uint8_t *nic_pld_addr = ((uint8_t*) (task->pkt_mem));
-    uint16_t pkt_pld_len = ip_hdr->length;
+    uint32_t pkt_pld_len = ip_hdr->length;
     udp_hdr_t *udp_hdr = (udp_hdr_t*) (((uint8_t*) (task->pkt_mem)) + ip_hdr->ihl * 4);
 
     uint32_t src_id = ip_hdr->source_id;
@@ -291,15 +296,20 @@ __handler__ void osmosis_io_read_ph(handler_args_t *args)
     udp_hdr->src_port = udp_hdr->dst_port;
     udp_hdr->dst_port = src_port;
 
+    spin_cmd_t send;
     osmosis_cmd_t dma;
-
     uint64_t host_address = task->host_mem_high;
     host_address = (host_address << 32) | (task->host_mem_low);
-    osmosis_dma_from_host(host_address, (uint32_t) nic_pld_addr, pkt_pld_len, 1, &dma, DEFAULT_CHUNK_SIZE);
-    osmosis_cmd_wait(dma);
 
-    spin_cmd_t send;
-    spin_send_packet(nic_pld_addr, pkt_pld_len, &send);
+    uint32_t n_reqs = pkt_pld_len >> 10;
+    n_reqs += 1;
+
+    for (; n_reqs > 0; n_reqs--) {
+        osmosis_dma_from_host(host_address, (uint32_t) nic_pld_addr, pkt_pld_len, 1, &dma, DEFAULT_CHUNK_SIZE);
+        osmosis_cmd_wait(dma);
+        spin_send_packet(nic_pld_addr, pkt_pld_len, &send);
+        spin_cmd_wait(send);
+    }
 }
 
 __handler__ void filtering_ph(handler_args_t *args)

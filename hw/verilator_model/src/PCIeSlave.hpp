@@ -203,7 +203,7 @@ namespace PsPIN
             if (sim_time() >= read.time && axi_driver_slv.can_send_r_beat())
             {
                 // TODO: copy data here (memcpy in read.req.r_beat.r_data)!
-                SIM_PRINT("PCIe: got read request (data size: %d)!\n", read.req.data_size);
+                //SIM_PRINT("PCIe: got read request (data size: %d)!\n", read.req.data_size);
                 if (slv_read_cb) slv_read_cb(read.req.addr, read.req.r_beat.r_data, read.req.data_size);
 
                 bytes_read += read.req.data_size;

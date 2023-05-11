@@ -47,11 +47,28 @@ gen_2048_4096_pkt_sizes = lambda: get_pkt_size_lognorm(9.0, 0.2, 3072, 4096)
 
 n_tenants=4
 total_packets=500
-gens = [gen_64_128_pkt_sizes, gen_64_128_pkt_sizes,       # 0 and 1 are victims
-        gen_2048_4096_pkt_sizes, gen_2048_4096_pkt_sizes] # 2 and 3 are congestors
 
-n_traces=10
+compute_gens = [lambda: 64, gen_64_128_pkt_sizes,
+                lambda: 4096, gen_2048_4096_pkt_sizes]
+io_compute_gens = [lambda: 4096, gen_64_128_pkt_sizes,       # 0 and 1 are victims
+                   gen_2048_4096_pkt_sizes, gen_2048_4096_pkt_sizes] # 2 and 3 are congestors
+io_gens = [lambda: 64, gen_64_128_pkt_sizes,       # 0 and 1 are victims
+           lambda: 4096, gen_2048_4096_pkt_sizes] # 2 and 3 are congestors
+
+n_traces=2
 for i in range(n_traces):
     arrival_sequence = generate_arrival_sequence(n_tenants, total_packets)
-    sequence = generate_packet_sizes(n_tenants, arrival_sequence, gens)
-    dump_sequence(n_tenants, sequence, f"./t{n_tenants}.{total_packets}.{i}.trace", "src_addr", "192.168.0.")
+    sequence = generate_packet_sizes(n_tenants, arrival_sequence, compute_gens)
+    dump_sequence(n_tenants, sequence, f"./compute.{total_packets}.{i}.trace", "src_addr", "192.168.0.")
+
+n_traces=2
+for i in range(n_traces):
+    arrival_sequence = generate_arrival_sequence(n_tenants, total_packets)
+    sequence = generate_packet_sizes(n_tenants, arrival_sequence, io_compute_gens)
+    dump_sequence(n_tenants, sequence, f"./io_compute.{total_packets}.{i}.trace", "src_addr", "192.168.0.")
+
+n_traces=2
+for i in range(n_traces):
+    arrival_sequence = generate_arrival_sequence(n_tenants, total_packets)
+    sequence = generate_packet_sizes(n_tenants, arrival_sequence, io_gens)
+    dump_sequence(n_tenants, sequence, f"./io.{total_packets}.{i}.trace", "src_addr", "192.168.0.")
