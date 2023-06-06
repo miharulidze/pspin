@@ -198,6 +198,11 @@ int pspinsim_run()
     return SPIN_SUCCESS;
 }
 
+uint64_t pspinsim_time()
+{
+    return sim->time();
+}
+
 int pspinsim_run_tick(uint8_t* done_flag)
 {
     // Single step of the main loop

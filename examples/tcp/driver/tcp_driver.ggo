@@ -1,0 +1,13 @@
+version "0.1"
+package "tcp_driver"
+purpose "TCP driver"
+
+# Options
+option "pcap-file" f "PCAP trace file" optional string 
+option "dest-ip" i "Use only packets with this IP address as destination" optional string default="127.0.0.1"
+option "dummy-bytes" c "Number of dummy packets" optional int default="512"
+option "dummy-mtu" m "Size of dummy packets (payload)" optional int default="64"
+option "G" G "Gap per byte in ns. Default is G=0.02 (400 Gbit/s)" optional float default="0.02"
+option "ooo-fast-lat" - "Fast link latency (ns)" optional int default="200"
+option "ooo-slow-lat" - "Slow link latency (ns)" optional int default="500"
+option "ooo-k" - "Probability of taking the slow path" optional float default="0"
