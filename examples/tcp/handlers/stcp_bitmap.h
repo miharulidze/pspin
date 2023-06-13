@@ -5,10 +5,14 @@
 typedef uint32_t stcp_bitmap_word_t;
 
 #define WORD_SIZE (sizeof(uint32_t)*8)
-#define STCP_BITMAP_DEFINE(bits, name) typedef struct name##_s { uint32_t num_words; stcp_bitmap_word_t words[((bits)/WORD_SIZE) + 1];} name 
+#define STCP_BITMAP_DEFINE(bits, name) (                    \
+    typedef struct name##_s {                               \
+        uint32_t num_words;                                 \
+        stcp_bitmap_word_t words[((bits)/WORD_SIZE) + 1];   \
+    } name)
 #define STCP_BITMAP_SIZE(BITS) (BITS/8)
 
-//generic bitmap
+/* Generic bitmap */
 typedef struct stcp_bitmap {
     uint32_t num_words;
     volatile stcp_bitmap_word_t words[1];

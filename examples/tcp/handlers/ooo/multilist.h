@@ -1,7 +1,7 @@
 #pragma once
 
 #include "hpool.h"
-#include "../stcp_utils.h"
+#include "types.h"
 
 #define NUM_LISTS 8
 

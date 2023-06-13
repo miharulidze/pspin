@@ -1,11 +1,11 @@
 #pragma once
-#define NUM_POOLS 8
-
-#define HPOOL_SUCCESS 0
-#define HPOOL_NO_SPACE 1
 
 #include <stdint.h>
-#include "../stcp_utils.h"
+#include "types.h"
+
+#define NUM_POOLS 8
+#define HPOOL_SUCCESS 0
+#define HPOOL_NO_SPACE 1
 
 typedef struct hpool_entry
 {

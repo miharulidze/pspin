@@ -40,14 +40,11 @@ namespace STCP
         {
             uint64_t shadow_buff_addr = (uint64_t) & (shadow_buffer[0]);
 
-            if (addr == 0xdeadbeef)
-            {
+            if (addr == 0xdeadbeef) {
                 uint64_t ready_seqno = *((uint64_t *)data);
-
                 printf("NIC is updating seqno to %lu (0x%lx)\n", ready_seqno, ready_seqno);
 
-                // we are relaxing this assumption
-                /*
+                /* we are relaxing this assumption
                 if (current_seqno >= ready_seqno)
                 {
                     printf("Invalid seqno update: Current seqno (at the host): %u; new seqno: %u;\n", current_seqno, ready_seqno);
@@ -55,35 +52,34 @@ namespace STCP
                 }
                 */
 
-                if (current_seqno < ready_seqno)
-                {
-                    printf("%lu SEQNO_UPDATE %lu %lu %lu\n", pspinsim_time(), current_seqno, ready_seqno, ready_seqno - current_seqno);
+                if (current_seqno < ready_seqno) {
+                    printf("%lu SEQNO_UPDATE %lu %lu %lu\n", pspinsim_time(), current_seqno, ready_seqno,
+                           ready_seqno - current_seqno);
                     assert(ready_seqno >= 0 && ready_seqno < shadow_buff_size);
                     current_seqno = ready_seqno;
-                    for (uint32_t i = current_seqno; i < ready_seqno; i++)
+                    for (uint32_t i = current_seqno; i < ready_seqno; i++) {
                         assert(shadow_buffer[i] == 1);
+                    }
                 }
 
                 return;
             }
 
-            printf("[HOST] NIC wants to write %lu bytes to addr %lx (-> %lx); Offset: %u; Buffer: [%lx; %lx]\n", len, addr, addr + len, (uint32_t)(addr - shadow_buff_addr), shadow_buff_addr, shadow_buff_addr + shadow_buff_size);
+            printf("[HOST] NIC wants to write %lu bytes to addr %lx (-> %lx); Offset: %u; Buffer: [%lx; %lx]\n",
+                   len, addr, addr + len, (uint32_t)(addr - shadow_buff_addr),
+                   shadow_buff_addr, shadow_buff_addr + shadow_buff_size);
             if (addr < shadow_buff_addr)
-            {
                 FATAL("Error: writing before shadow buffer! addr: %lx; shadow_buff_addr: %lx\n", addr, shadow_buff_addr);
-            }
             if (addr + len > shadow_buff_addr + shadow_buff_size)
-            {
-                FATAL("Error: writing after shadow buffer! addr + len: %lx; shadow_buff_addr + shadow_buff_size: %lx\n", addr + len, shadow_buff_addr + shadow_buff_size);
-            }
+                 FATAL("Error: writing after shadow buffer! addr + len: %lx; shadow_buff_addr + shadow_buff_size: %lx\n",
+                       addr + len, shadow_buff_addr + shadow_buff_size);
 
-            for (uint32_t i = 0; i < len; i++)
-            {
+            for (uint32_t i = 0; i < len; i++) {
                 *((char *)shadow_buff_addr) = 1;
                 shadow_buff_addr++;
             }
         }
-    
+
         void notifyWriteToNICComplete(void *user_ptr)
         {
             ready = true;
@@ -96,8 +92,11 @@ namespace STCP
 
         void injectPacket(Packet* pkt)
         {
-            pspinsim_packet_add(&ec, 0, &(pkt->data[0]), pkt->size, pkt->size, pkt->eos, pkt->size * G, 0);
-            if (pkt->eos) pspinsim_packet_eos();
+            pspinsim_packet_add(&ec, 0, &(pkt->data[0]), pkt->size, pkt->size,
+                                pkt->eos, pkt->size * G, 0);
+            if (pkt->eos) {
+              pspinsim_packet_eos();
+            }
         }
 
         size_t bytesReceived()
@@ -131,8 +130,7 @@ namespace STCP
             ec.th_size = th_size;
             // ec.pin_to_cluster   = 1;
 
-            for (int i = 0; i < NUM_CLUSTERS; i++)
-            {
+            for (int i = 0; i < NUM_CLUSTERS; i++) {
                 ec.scratchpad_addr[i] = 0; // SCRATCHPAD_ADDR(i);
                 ec.scratchpad_size[i] = L1_SCRATCHPAD_SIZE;
             }
@@ -171,17 +169,16 @@ namespace STCP
         size_t config_nic_mem()
         {
             size_t connection_state_size = sizeof(stcp_connection_t);
-
             connection_state_size += multilist_host_additional_size(NUM_OOO_SEGMENTS, 8);
-
             assert(connection_state_size <= NIC_L2_SIZE);
-            printf("Connection state size: %lu B (multilist additional size: %lu B)\n", connection_state_size, multilist_host_additional_size(NUM_OOO_SEGMENTS, 8));
+
+            printf("Connection state size: %lu B (multilist additional size: %lu B)\n",
+                   connection_state_size, multilist_host_additional_size(NUM_OOO_SEGMENTS, 8));
+
             connection_descr = (stcp_connection_t *)malloc(connection_state_size * sizeof(uint8_t));
-
             init_conn(connection_descr);
-
-            // copy_to_device --> check nvidia
             spin_nicmem_write(NIC_L2_ADDR, (void *)connection_descr, connection_state_size, NULL);
+
             return connection_state_size;
         }
     };

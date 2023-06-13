@@ -30,10 +30,8 @@ int main(int argc, char**argv)
 {
     struct gengetopt_args_info ai;
     if (cmdline_parser(argc, argv, &ai) != 0)
-    {
         exit(1);
-    }
-    
+
     pspin_conf_t conf;
     pspinsim_default_conf(&conf);
     conf.slm_files_path = SLM_FILES;
@@ -47,7 +45,9 @@ int main(int argc, char**argv)
     pspinsim_cb_set_pcie_mst_write_completion(pcie_mst_write_complete);
     pspinsim_cb_set_pcie_mst_read_completion(pcie_mst_read_complete);
 
-    // NOTE: the sender is only functional. Bandwidth shaping is done at the receiver side (I know, this is ugly).
+    // NOTE: the sender is only functional.
+    // Bandwidth *shaping* is done at the receiver side (I know, this is ugly).
+
     sender = new TCPDummySender(ai.dummy_bytes_arg, mtu, IPSRC, IPDST, START_SEQNO);
     receiver = new TCPReceiver(SHADOW_BUFF_SIZE, ai.G_arg);
     network = new Network(ai.ooo_fast_lat_arg, ai.ooo_slow_lat_arg, ai.ooo_k_arg);
@@ -57,21 +57,19 @@ int main(int argc, char**argv)
     while (!sim_complete)
     {
         network->tick(pspinsim_time());
-        
-        if (sender->isReady())
-        {
+
+        // just get as many packets as we can from the sender, they will be paced in the receiver.
+        if (sender->isReady()) {
             Packet* pkt = new Packet(mtu);
-            // just get as many packets as we can from the sender, they will be paced in the receiver. 
             size_t pkt_len = sender->getNextPacket(pkt);
             assert(pkt->size <= pkt->mtu);
             network->injectPacket(pkt);
         }
 
-        if (network->isReady())
-        {
+        if (network->isReady()) {
             Packet *pkt = network->extractPacket();
             receiver->injectPacket(pkt);
-            delete pkt; // the receiver will make a copy of the pkt, so this is safe 
+            delete pkt; // the receiver will make a copy of the pkt, so this is safe
         }
 
         pspinsim_run_tick(&sim_complete);
@@ -82,14 +80,10 @@ int main(int argc, char**argv)
     uint32_t bytes_sent = sender->bytesSent();
     uint32_t bytes_recv = receiver->bytesReceived();
 
+    // no assert here otherwise traces are not flushed and we might want to see them at this point
     printf("Total payload bytes sent: %d; receveid: %u\n", bytes_sent, bytes_recv);
     if (bytes_sent != bytes_recv)
-    {
-        // no assert here otherwise traces are not flushed and we might want to see them at this point
         printf("#### Error: bytes_sent!=bytes_recv!!!");
-    }
-
-    
 
     return 0;
 }

@@ -11,6 +11,12 @@
 #define __be32 uint32_t
 #define __sum16 uint16_t
 
+#ifdef HOST
+#define PTR32(ptr) uint32_t
+#else
+#define PTR32(ptr) ptr
+#endif
+
 #define __constant_cpu_to_be32(X) X
 
 #define U32_H16(i) ((i) >> 16)
@@ -27,4 +33,3 @@
                   ((((unsigned long)(n) & 0xFF00)) << 8) | \
                   ((((unsigned long)(n) & 0xFF0000)) >> 8) | \
                   ((((unsigned long)(n) & 0xFF000000)) >> 24))
-                  

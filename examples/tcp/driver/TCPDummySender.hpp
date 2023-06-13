@@ -43,13 +43,14 @@ namespace STCP
         uint32_t ipsrc, ipdst;
 
     private:
-        size_t _make_pkt(uint8_t *pkt_buffer, size_t pkt_buffer_size, bool syn, bool ack, bool fin, size_t payload_size)
+        size_t _make_pkt(uint8_t *pkt_buffer, size_t pkt_buffer_size,
+                         bool syn, bool ack, bool fin, size_t payload_size)
         {
             size_t packet_len = sizeof(ip_header_t) + sizeof(tcp_header_t) + payload_size;
-            assert(packet_len <= pkt_buffer_size);
-
             ip_header_t *ip_hdr = (ip_header_t *)(&(pkt_buffer[0]));
             tcp_header_t *tcp_hdr = (tcp_header_t *)(&(pkt_buffer[0]) + sizeof(ip_header_t));
+
+            assert(packet_len <= pkt_buffer_size);
 
             // define IP header
             ip_hdr->ihl = 5;
@@ -107,52 +108,39 @@ namespace STCP
         {
             pkt->eos = false;
 
-            if (tcp_flow.state == INIT)
-            {
-                // send SYN
+            if (tcp_flow.state == INIT) {
                 printf("[HOST] sending SYN!\n");
                 pkt->size = _make_pkt(&(pkt->data[0]), pkt->mtu, 1, 0, 0, 0);
-
                 tcp_flow.state = SYN_SENT;
-
                 return pkt->size;
-            }
-            else if (tcp_flow.state == FIN_ACK_RECVD)
-            {
-                // send final ACK
+            } else if (tcp_flow.state == FIN_ACK_RECVD) {
                 printf("[HOST] sending final ACK!\n");
-
                 pkt->size = _make_pkt(&(pkt->data[0]), pkt->mtu, 0, 1, 0, 0);
                 pkt->eos = true;
-
                 tcp_flow.state = CLOSED;
-
                 return pkt->size;
-            }
-            else
-            {
-                // make full packet
+            } else  { // make full packet
                 assert(bytes_left > 0);
                 bool fin = false;
                 bool ack = bytes_sent == 0; // this is for the final ACK of the three-way handshake
-
                 size_t max_payload_size = MTU - sizeof(ip_header_t) - sizeof(tcp_header_t);
                 size_t payload_size = std::min(max_payload_size, bytes_left);
+
                 bytes_left -= payload_size;
                 bytes_sent += payload_size;
 
-                if (bytes_left == 0)
-                {
+                if (bytes_left == 0) {
                     tcp_flow.state = FIN_SENT;
                     fin = true;
                 }
 
                 pkt->size = _make_pkt(&(pkt->data[0]), pkt->mtu, 0, ack, bytes_left == 0, payload_size);
-    
                 ip_header_t *ip_hdr = (ip_header_t *)(&(pkt->data[0]));
                 tcp_header_t *tcp_hdr = (tcp_header_t *)(&(pkt->data[0]) + sizeof(ip_header_t));
 
-                printf("Sending TCP packet (len: %lu; SYN: %hu; ACK: %hu; FIN: %hu; CHECK: 0x%x); bytes_left: %u;\n", pkt->size, (uint16_t)tcp_hdr->syn, (uint16_t)tcp_hdr->ack, (uint16_t)tcp_hdr->fin, (uint32_t)tcp_hdr->check, bytes_left);
+                printf("Sending TCP packet (len: %lu; SYN: %hu; ACK: %hu; FIN: %hu; CHECK: 0x%x); bytes_left: %u;\n",
+                       pkt->size, (uint16_t)tcp_hdr->syn, (uint16_t)tcp_hdr->ack, (uint16_t)tcp_hdr->fin,
+                       (uint32_t)tcp_hdr->check, bytes_left);
 
                 return pkt->size;
             }
@@ -162,31 +150,33 @@ namespace STCP
         {
             char saddr[IP_STR_LEN];
             char daddr[IP_STR_LEN];
-
             ip_header_t *ip_hdr = (ip_header_t *)data;
             int2ip(ip_hdr->saddr, saddr, IP_STR_LEN);
             int2ip(ip_hdr->daddr, daddr, IP_STR_LEN);
-
             tcp_header_t *tcp_hdr = (tcp_header_t *)(data + sizeof(ip_header_t));
 
-            printf("[HOST] Got packet: %s:%hu -> %s:%hu; SYN: %hu; ACK: %hu; FIN: %hu; State: %u\n", saddr, tcp_hdr->source, daddr, tcp_hdr->dest, (uint16_t)tcp_hdr->syn, (uint16_t)tcp_hdr->ack, (uint16_t)tcp_hdr->fin, (uint32_t)tcp_flow.state);
+            printf("[HOST] Got packet: %s:%hu -> %s:%hu; SYN: %hu; ACK: %hu; FIN: %hu; State: %u\n",
+                   saddr, tcp_hdr->source, daddr, tcp_hdr->dest,
+                   (uint16_t)tcp_hdr->syn, (uint16_t)tcp_hdr->ack, (uint16_t)tcp_hdr->fin,
+                   (uint32_t)tcp_flow.state);
 
-            switch (tcp_flow.state)
-            {
+            switch (tcp_flow.state) {
+
             case SYN_SENT:
                 assert(tcp_hdr->syn && tcp_hdr->ack);
                 tcp_flow.state = ESTABLISHED;
                 break;
+
             case ESTABLISHED:
                 break;
+
             case FIN_SENT:
                 if (tcp_hdr->fin && tcp_hdr->ack)
-                {
                     tcp_flow.state = FIN_ACK_RECVD;
-                }
                 break;
             default:
-                assert(0);
+                //assert(0);
+                break;
             }
         }
 
