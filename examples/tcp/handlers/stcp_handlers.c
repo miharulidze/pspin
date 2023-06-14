@@ -64,9 +64,9 @@ __handler__ void tcp_hh(handler_args_t *args)
     //       task->home_cluster_id,
     //       &(task->scratchpad[task->home_cluster_id]),
     //       cluster_state);
-#else /* CONNECTION_IN_L2 */
+#elif defined (CONNECTION_IN_L2)
     stcp_connection_t *connection = (stcp_connection_t*) task->handler_mem;
-    ooo_list = connection->ooo_list;
+    //ooo_list = connection->ooo_list;
 #endif
 
 #ifdef OOO_LAZYLIST
@@ -116,7 +116,7 @@ __handler__ void tcp_ph(handler_args_t *args)
 #elif defined (CONNECTION_IN_L1)
         cluster_state_t *cluster_state = ((cluster_state_t **)args->task->scratchpad)[args->task->home_cluster_id];
         stcp_connection_t *connection = &(cluster_state->connection);
-#else /* CONNECTION_IN_L2 */
+#elif defined (CONNECTION_IN_L2)
         connection = (stcp_connection_t*) task->handler_mem;
 #endif
         stcp_rx(args, connection, tcp_hdr, tcp_segment_size);
@@ -131,18 +131,19 @@ __handler__ void tcp_ph(handler_args_t *args)
  * Warning: recall that the TH is not called on the last received packet, but on the last
  * processed packet!!!
  */
-__handler__ void tcp_th(handler_args_t *args)
-{
-    /* TODO: close connection */
-}
+//__handler__ void tcp_th(handler_args_t *args)
+//{
+//    /* TODO: close connection */
+//}
 
 void init_handlers(handler_fn *hh, handler_fn *ph, handler_fn *th, void **handler_mem_ptr)
 {
-    volatile handler_fn handlers[] = {tcp_hh, tcp_ph, tcp_th};
+    //volatile handler_fn handlers[] = {tcp_hh, tcp_ph, tcp_th};
+    volatile handler_fn handlers[] = {tcp_hh, tcp_ph, NULL};
 
     *hh = handlers[0];
     *ph = handlers[1];
-    *th = handlers[2];
+    *th = NULL; //handlers[2];
 
     *handler_mem_ptr = (void *)handler_mem;
 }

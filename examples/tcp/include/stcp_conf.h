@@ -5,6 +5,7 @@
 //#define ONLY_CHECKSUM
 //#define CONNECTION_LOOKUP
 #define CONNECTION_IN_L1
+//#define CONNECTION_IN_L2
 
 //Size of the TCP shadow buffer (per-connection, in bytes)
 #define STCP_SHADOW_BUFFER_SIZE (1024*1024*1024)
