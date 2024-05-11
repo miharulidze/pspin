@@ -3,7 +3,7 @@
 TRACES_DIR=$1
 LOGS_DIR=$2
 
-for TRACE_PREFIX in {"compute.500.0","compute.1000.0"}
+for TRACE_PREFIX in "compute.500.0"
 do
     for MIX in "compute"
     do
@@ -17,7 +17,7 @@ do
     done
 done
 
-for TRACE_PREFIX in {"io.500.0","io.1000.0"}
+for TRACE_PREFIX in "io.500.0"
 do
     for MIX in "io"
     do

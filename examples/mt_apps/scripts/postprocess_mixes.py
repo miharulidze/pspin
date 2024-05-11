@@ -110,14 +110,5 @@ def parse_logs(logsdir, expname, modes, mixes, traces):
                 for trial, trace in enumerate(traces):
                     parse_time(logsdir, mode, mix, trace, trial, outcsv)
 
-
-parse_logs(
-    logsdir=logs_dir,
-    expname="mixes",
-    modes=["baseline","osmosis"],
-    mixes=["compute","io"],
-    traces=["1000.0"]
-)
-
 parse_logs(logsdir=logs_dir, expname="compute_mix",modes=["baseline","osmosis"],mixes=["compute"],traces=["500.0"])
 parse_logs(logsdir=logs_dir, expname="io_mix",modes=["baseline","osmosis"],mixes=["io"],traces=["500.0"])
