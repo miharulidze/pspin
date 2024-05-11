@@ -65,6 +65,6 @@ with open(f"{logsdir}/hpu_occupation.csv", "w") as outcsv:
     writer = csv.writer(outcsv)
 
     with open(f"{logsdir}/hpu_occupation.csv", "a") as outcsv:
-        for trace in ["t2mix500.128b","t2mix100.128b","t2mix300.128b","t2mix100","t2mix300"]:
+        for trace in ["t2mix100.128b"]:
             for arbiter in ["RR","WLBVT"]:
                 parse_hpu_occup(logsdir, trace, n_tenants, cycles, prios, arbiter, writer)

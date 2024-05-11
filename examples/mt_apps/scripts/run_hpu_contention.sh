@@ -8,7 +8,7 @@ VICTIM_PRIO=0
 ATTACKER_ITERS=512
 ATTACKER_PRIO=0
 
-for TRACE_PREFIX in {"t2mix500.128b","t2mix100.128b","t2mix300.128b","t2mix100","t2mix300"}
+for TRACE_PREFIX in "t2mix100.128b"
 do
     for ARBITER in {"RR","WLBVT"}
     do
