@@ -33,8 +33,8 @@ do
 #            for TRACE_PREFIX in {"congested","no_congestion"}
             do
                 CMD="OSMOSIS_EGRESS_FRAGMENTATION=1 OSMOSIS_EGRESS_FSIZE=${CHUNK_SIZE} ./sim_io_contention -t ${TRACES_DIR}/${TRACE_PREFIX}.trace ${BMARK} ${VICTIM_SIZE} ${VICTIM_COUNT} ${ATTACKER_SIZE} ${ATTACKER_COUNT} 64 &> ${LOGS_DIR}/2.osmosis_axi_${BMARK}.victim${VICTIM_SIZE}.attacker${ATTACKER_SIZE}.c${CHUNK_SIZE}.${TRACE_PREFIX}.log"
-#                echo "$CMD"
-#                eval $CMD
+                echo "$CMD"
+                eval $CMD
             done
         done
     done
@@ -51,8 +51,8 @@ do
 #            for TRACE_PREFIX in {"congested","no_congestion"}
             do
                 CMD="./sim_io_contention -t ${TRACES_DIR}/${TRACE_PREFIX}.trace ${BMARK} ${VICTIM_SIZE} ${VICTIM_COUNT} ${ATTACKER_SIZE} ${ATTACKER_COUNT} ${CHUNK_SIZE} &> ${LOGS_DIR}/2.${BMARK}.victim${VICTIM_SIZE}.attacker${ATTACKER_SIZE}.c${CHUNK_SIZE}.${TRACE_PREFIX}.log"
-#                echo "$CMD"
-#                eval $CMD
+                echo "$CMD"
+                eval $CMD
             done
         done
     done

@@ -115,6 +115,9 @@ parse_logs(
     logsdir=logs_dir,
     expname="mixes",
     modes=["baseline","osmosis"],
-    mixes=["compute","io","io_compute"],
+    mixes=["compute","io"],
     traces=["1000.0"]
 )
+
+parse_logs(logsdir=logs_dir, expname="compute_mix",modes=["baseline","osmosis"],mixes=["compute"],traces=["500.0"])
+parse_logs(logsdir=logs_dir, expname="io_mix",modes=["baseline","osmosis"],mixes=["io"],traces=["500.0"])
